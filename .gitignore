@@ -1,0 +1,43 @@
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+wheels/
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Environment secrets & credentials
+.env
+*.env
+!.env.example
+
+# Runtime data & search indexes (Never commit)
+/data/staging/*
+/data/raw/*
+/data/parsed/*
+/data/indexes/bm25/*
+/data/indexes/dense/*
+!data/**/.gitkeep
+
+# Explicitly ensure benchmark test data is NOT ignored
+!tests/data/
+!tests/data/**
+
+# Testing, linting & coverage caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor & OS artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
