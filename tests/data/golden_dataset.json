@@ -1,0 +1,124 @@
+[
+  {
+    "id": "eval-001",
+    "category": "ingestion_deduplication",
+    "input": "How does RAGnarok prevent duplicate document ingestion?",
+    "expected_output": "RAGnarok computes a SHA-256 cryptographic checksum across the raw file content in the staging directory and checks it against the checksum column in the PostgreSQL documents table. If a match is found, ingestion is rejected to prevent duplicate parsing and chunking.",
+    "expected_context": [
+      "The pipeline calculates a SHA-256 checksum of the raw file content.",
+      "If the checksum matches an existing entry in the documents table, the pipeline flags the file as a duplicate, preventing redundant parsing and duplicate chunk entries."
+    ]
+  },
+  {
+    "id": "eval-002",
+    "category": "storage_schema",
+    "input": "What relational tables are used in PostgreSQL, and how do chunks link to parents?",
+    "expected_output": "PostgreSQL uses four relational tables: documents, parent_chunks, chunks, and processing_jobs. Each child chunk in the chunks table links to its containing section via the parent_chunk_id foreign key referencing parent_chunks.",
+    "expected_context": [
+      "PostgreSQL will be the database for RAGnarok's document records, parent chunks, child chunks, and chunk text.",
+      "chunks.parent_chunk_id is a foreign key referencing parent_chunks.parent_chunk_id, linking each child chunk to its parent."
+    ]
+  },
+  {
+    "id": "eval-003",
+    "category": "parent_child_decoupling",
+    "input": "Are parent chunks indexed in the vector database or lexical search?",
+    "expected_output": "No. RAGnarok embeds and indexes only child chunks in TurboVec and BM25s. Parent chunks are stored strictly in PostgreSQL as broader context reservoirs and are never indexed into the search engines.",
+    "expected_context": [
+      "In RAGnarok, we will embed and index only child chunks.",
+      "Parent chunks are not embedded or indexed in the dense vector index.",
+      "Parent chunks are stored separately and are not indexed by BM25."
+    ]
+  },
+  {
+    "id": "eval-004",
+    "category": "chunking_strategy",
+    "input": "How is parsed Markdown divided into parent and child chunks?",
+    "expected_output": "Parsed Markdown is first split by structural heading levels using MarkdownHeaderTextSplitter into bounded parent units. Each parent unit is then subdivided into smaller token-bounded child chunks (128–256 tokens with overlap) using RecursiveCharacterTextSplitter.",
+    "expected_context": [
+      "MarkdownHeaderTextSplitter divides parsed Markdown into sections using configured heading levels and captures the heading hierarchy.",
+      "RecursiveCharacterTextSplitter splits each parent unit into smaller child chunks, preferring natural text boundaries and applying the configured child overlap."
+    ]
+  },
+  {
+    "id": "eval-005",
+    "category": "dense_indexing",
+    "input": "Why does TurboVec require an ID mapping for child chunks?",
+    "expected_output": "PostgreSQL uses UUIDs for chunk identifiers, whereas TurboVec's IdMapIndex requires 64-bit unsigned numeric integer IDs. RAGnarok maintains an injective mapping between PostgreSQL UUIDs and TurboVec numeric IDs.",
+    "expected_context": [
+      "The mapping is required because PostgreSQL uses UUID chunk IDs, while the selected TurboVec ID-mapping index uses unsigned 64-bit numeric IDs.",
+      "The application uses this mapping to associate search results with the correct PostgreSQL chunk records."
+    ]
+  },
+  {
+    "id": "eval-006",
+    "category": "metadata_filtering",
+    "input": "How does metadata filtering work during dense vector retrieval?",
+    "expected_output": "Metadata constraints in the query (such as filename, document ID, or chunk index) are resolved in PostgreSQL first. Matching child chunk UUIDs are mapped to 64-bit integers and passed to TurboVec as an allowlist. TurboVec never queries PostgreSQL directly.",
+    "expected_context": [
+      "RAGnarok will use PostgreSQL to resolve the supported metadata constraints, then pass the eligible chunk IDs to TurboVec as an allowlist.",
+      "TurboVec's IdMapIndex supports an ID allowlist during search, so the dense search can be restricted to eligible vector IDs. It does not directly query PostgreSQL metadata."
+    ]
+  },
+  {
+    "id": "eval-007",
+    "category": "self_rag",
+    "input": "What role does the Self-RAG decision gate play before retrieval?",
+    "expected_output": "Self-RAG evaluates whether the user's inquiry can be answered reliably using internal LLM knowledge alone. If yes, it bypasses the retrieval pipeline and generates the answer directly; if no, the query proceeds through retrieval.",
+    "expected_context": [
+      "It acts as a decision gate: 'Can I answer this query reliably using my internal knowledge, without retrieving information from the document corpus?'",
+      "If yes, proceed directly to generation. If no, send the query through the RAG pipeline."
+    ]
+  },
+  {
+    "id": "eval-008",
+    "category": "adaptive_retrieval",
+    "input": "When does Adaptive Retrieval route a query to lexical search versus dense search?",
+    "expected_output": "Adaptive Retrieval routes to BM25s lexical search when queries contain strong exact-match signals such as identifiers, API names, error codes, or quoted strings. It routes to TurboVec dense search when queries contain semantic signals seeking conceptual explanations or relationships.",
+    "expected_context": [
+      "Strong exact-match signals route to Lexical (BM25).",
+      "Strong semantic signals route to Dense (TurboVec).",
+      "Exact-match signals include identifiers, function/class/API names, configuration keys, filenames, error codes, and quoted phrases."
+    ]
+  },
+  {
+    "id": "eval-009",
+    "category": "hybrid_fusion",
+    "input": "How does RRF combine BM25 and dense retrieval results, and are raw scores summed?",
+    "expected_output": "RRF combines result lists using the one-based rank positions of child chunks with a rank constant k (default: 60). Raw BM25 scores and cosine similarity scores are never added or normalized together; they are preserved for provenance only.",
+    "expected_context": [
+      "RRF combines ranked lists using the rank positions of each child chunk. It does not add or normalize native BM25 and dense scores.",
+      "The native BM25 and dense scores are retained for provenance, debugging, and evaluation. They are not directly compared or combined as raw values."
+    ]
+  },
+  {
+    "id": "eval-010",
+    "category": "context_management",
+    "input": "What happens when expanded parent chunks exceed the generation context budget?",
+    "expected_output": "Context Management selects whole parent chunks in descending order of retrieval rank until adding another parent would exceed max_tokens. Selection halts immediately; parent sections are never sliced, truncated, or summarized across token boundaries.",
+    "expected_context": [
+      "The context manager should ensure that the assembled context does not exceed the configured generation context budget.",
+      "Higher-ranked parents get priority. We don't summarize, compress, or cut parents apart. We select the most relevant complete parent chunks that fit within the context budget."
+    ]
+  },
+  {
+    "id": "eval-011",
+    "category": "generation_citations",
+    "input": "How are citations formatted in generated answers and resolved to sources?",
+    "expected_output": "Generated answers format factual claims with inline bracketed numbers like [1] and [2]. Post-generation citation resolution maps these markers to structured footnotes containing the document filename, section heading path, and PostgreSQL parent chunk ID.",
+    "expected_context": [
+      "Every factual claim MUST be followed by its source citation, e.g. [1], [2].",
+      "Detect inline citation markers ([1], [2], [3]) in the generated text and map each index back to the underlying parent chunk and source document."
+    ]
+  },
+  {
+    "id": "eval-012",
+    "category": "eval_metrics",
+    "input": "What are the core metrics in RAGnarok's evaluation triad and their target thresholds?",
+    "expected_output": "The Evaluation Triad consists of Contextual Precision (>= 0.85), Contextual Recall (>= 0.85), Faithfulness (>= 0.90), and Answer Relevancy (>= 0.85), evaluated via DeepEval using an LLM-as-a-Judge against the Golden Dataset.",
+    "expected_context": [
+      "Core Metrics: The Evaluation Triad (Contextual Precision, Contextual Recall, Faithfulness, Answer Relevancy).",
+      "Contextual Precision >= 0.85, Contextual Recall >= 0.85, Faithfulness >= 0.90, Answer Relevancy >= 0.85."
+    ]
+  }
+]
