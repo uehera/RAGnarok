@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from ragnarok!")
+"""RAGnarok root package."""

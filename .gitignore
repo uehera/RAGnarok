@@ -41,3 +41,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# 
+.agents/
+dev/
+PROMPT.txt

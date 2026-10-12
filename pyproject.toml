@@ -1,17 +1,63 @@
 [project]
 name = "ragnarok"
 version = "0.1.0"
-description = "Add your description here"
+description = "High-performance local RAG system with parent-child chunking, hybrid retrieval, and native guardrails."
 readme = "README.md"
-authors = [
-    { name = "ver1619" }
-]
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    # Document Parsing & Text Processing
+    "docling>=2.0.0",
+    "langchain-text-splitters>=0.2.0",
+    "transformers>=4.40.0",
+    "tiktoken>=0.7.0",
+
+    # Relational Metadata & Storage
+    "psycopg[binary]>=3.1.18",
+
+    # Retrieval & Indexing
+    "bm25s[core]>=0.1.10",
+    "turbovec>=0.1.0",
+    "sentence-transformers>=3.0.0",
+
+    # LLM Synthesis, Guardrails & Configuration
+    "litellm>=1.40.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+
+    # CLI, TUI & Observability
+    "structlog>=24.1.0",
+    "rich>=13.7.0",
+    "typer>=0.12.0",
+    "textual>=0.60.0",
+
+    # Continuous Evaluations
+    "deepeval>=1.0.0",
+]
 
 [project.scripts]
-ragnarok = "ragnarok:main"
+ragnarok = "ragnarok.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.18,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "pyright>=1.1.360",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "C4", "SIM", "TID"]
+ignore = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src", "tests"]
