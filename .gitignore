@@ -24,6 +24,8 @@ venv/
 /data/indexes/bm25/*
 /data/indexes/dense/*
 !data/**/.gitkeep
+/docs/*
+!docs/.gitkeep
 
 # Explicitly ensure benchmark test data is NOT ignored
 !tests/data/
