@@ -110,7 +110,7 @@ def test_staging_service_unique_onboarding(
     raw_path = Path(doc.raw_file_path)
     assert raw_path.exists()
     assert raw_path.read_text(encoding="utf-8") == source_content
-    assert raw_path.name == f"{doc.document_id}.md"
+    assert raw_path.name == f"architecture_guide_{str(doc.document_id)[:8]}.md"
 
     # Verify processing job created with stage QUEUED
     assert job.stage == "queued"
