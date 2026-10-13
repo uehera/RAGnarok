@@ -21,6 +21,7 @@ def check_python_version() -> bool:
     print(f"[FAIL] Required Python 3.12, found {v.major}.{v.minor}.{v.micro}")
     return False
 
+
 def check_critical_imports() -> bool:
     print("Checking critical dependencies...", end=" ")
     packages = [
@@ -50,6 +51,7 @@ def check_critical_imports() -> bool:
     print(f"[FAIL] Missing packages: {', '.join(failed)}")
     return False
 
+
 def check_configuration() -> bool:
     print("Checking configuration subsystem...", end=" ")
     try:
@@ -63,6 +65,7 @@ def check_configuration() -> bool:
     except Exception as e:
         print(f"[FAIL] Failed to load configuration: {e}")
         return False
+
 
 def check_filesystem_paths() -> bool:
     print("Checking runtime filesystem directories...", end=" ")
@@ -86,14 +89,13 @@ def check_filesystem_paths() -> bool:
     print(f"[OK] {len(required_paths)} directories verified and writable")
     return True
 
+
 def check_database() -> bool:
     print("Checking PostgreSQL connectivity...", end=" ")
     try:
         import psycopg
 
-        db_url = os.getenv(
-            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ragnarok"
-        )
+        db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ragnarok")
         with psycopg.connect(db_url) as conn, conn.cursor() as cur:
             cur.execute("SELECT 1;")
             res = cur.fetchone()
@@ -110,14 +112,13 @@ def check_database() -> bool:
                     print(f"[OK] Connected. Found all 4 tables: {sorted(tables)}")
                     return True
                 else:
-                    print(
-                        f"[WARN] Connected. Found {len(tables)}/4 tables: {sorted(tables)}"
-                    )
+                    print(f"[WARN] Connected. Found {len(tables)}/4 tables: {sorted(tables)}")
                     return False
     except Exception as e:
         print(f"[FAIL] Could not connect to database: {e}")
         return False
     return False
+
 
 def check_accelerator() -> None:
     print("Detecting hardware acceleration...", end=" ")
@@ -133,6 +134,7 @@ def check_accelerator() -> None:
             print("[NOTE] Running on CPU (standard fallback)")
     except Exception:
         print("[NOTE] Torch not loaded; compute defaults to CPU")
+
 
 def main() -> int:
     print("=" * 60)
@@ -155,6 +157,7 @@ def main() -> int:
     else:
         print("Setup status: INCOMPLETE — Resolve failures above")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
