@@ -117,6 +117,36 @@ class RelationalRepository:
                 created_at=row[8],
             )
 
+    def get_documents_by_ids(self, document_ids: list[UUID]) -> dict[UUID, Document]:
+        """Retrieves document records matching a list of document UUIDs."""
+        if not document_ids:
+            return {}
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT document_id, filename, raw_file_path, parsed_file_path,
+                       file_type, file_size_bytes, checksum, status, created_at
+                FROM documents
+                WHERE document_id = ANY(%s);
+                """,
+                (document_ids,),
+            )
+            rows = cur.fetchall()
+            return {
+                row[0]: Document(
+                    document_id=row[0],
+                    filename=row[1],
+                    raw_file_path=row[2],
+                    parsed_file_path=row[3],
+                    file_type=row[4],
+                    file_size_bytes=row[5],
+                    checksum=row[6],
+                    status=row[7],
+                    created_at=row[8],
+                )
+                for row in rows
+            }
+
     def query_chunk_ids_by_metadata(
         self,
         document_id: UUID | None = None,
@@ -499,6 +529,31 @@ class RelationalRepository:
                     content=row[3],
                     chunk_index=row[4],
                     heading_path=cast(list[str], row[5] or []),
+                )
+                for row in rows
+            }
+
+    def get_parent_chunks_by_ids(self, parent_chunk_ids: list[UUID]) -> dict[UUID, ParentChunk]:
+        """Retrieves parent chunks matching a list of parent chunk UUIDs."""
+        if not parent_chunk_ids:
+            return {}
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT parent_chunk_id, document_id, content, parent_index, heading_path
+                FROM parent_chunks
+                WHERE parent_chunk_id = ANY(%s);
+                """,
+                (parent_chunk_ids,),
+            )
+            rows = cur.fetchall()
+            return {
+                row[0]: ParentChunk(
+                    parent_chunk_id=row[0],
+                    document_id=row[1],
+                    content=row[2],
+                    parent_index=row[3],
+                    heading_path=cast(list[str], row[4] or []),
                 )
                 for row in rows
             }
