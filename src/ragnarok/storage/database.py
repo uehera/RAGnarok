@@ -48,9 +48,7 @@ class DatabasePool:
         if self._is_closed:
             raise RuntimeError("DatabasePool is closed")
 
-        with psycopg.connect(
-            self.database_url, connect_timeout=int(self.timeout_seconds)
-        ) as conn:
+        with psycopg.connect(self.database_url, connect_timeout=int(self.timeout_seconds)) as conn:
             yield conn
 
     def health_check(self) -> bool:

@@ -35,6 +35,7 @@ class EnvSecrets(BaseSettings):
     openai_api_key: SecretStr | None = Field(default=None, description="OpenAI API key")
     anthropic_api_key: SecretStr | None = Field(default=None, description="Anthropic API key")
     groq_api_key: SecretStr | None = Field(default=None, description="Groq API key")
+    gemini_api_key: SecretStr | None = Field(default=None, description="Google Gemini API key")
     ollama_api_base: str | None = Field(
         default="http://localhost:11434", description="Ollama API base URL"
     )
@@ -42,36 +43,40 @@ class EnvSecrets(BaseSettings):
         default="http://localhost:8000/v1", description="vLLM API base URL"
     )
 
+
 class GeneralConfig(BaseModel):
     app_name: str = Field(default="RAGnarok")
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
+
 
 class DatabaseConfig(BaseModel):
     min_connections: int = Field(default=1, ge=1)
     max_connections: int = Field(default=10, ge=1)
     timeout_seconds: float = Field(default=30.0, gt=0.0)
 
+
 class IngestionDeduplicationConfig(BaseModel):
     hash_algorithm: str = Field(default="sha256")
     reject_duplicates: bool = Field(default=True)
+
 
 class IngestionParserConfig(BaseModel):
     engine: str = Field(default="docling")
     export_format: str = Field(default="markdown")
 
+
 class IngestionConfig(BaseModel):
     staging_directory: Path = Field(default_factory=lambda: Path("data/staging"))
     raw_directory: Path = Field(default_factory=lambda: Path("data/raw"))
     parsed_directory: Path = Field(default_factory=lambda: Path("data/parsed"))
-    supported_formats: list[str] = Field(
-        default_factory=lambda: [".pdf", ".docx", ".md", ".txt"]
-    )
+    supported_formats: list[str] = Field(default_factory=lambda: [".pdf", ".docx", ".md", ".txt"])
     batch_size: int = Field(default=50, ge=1)
     deduplication: IngestionDeduplicationConfig = Field(
         default_factory=IngestionDeduplicationConfig
     )
     parser: IngestionParserConfig = Field(default_factory=IngestionParserConfig)
+
 
 class ChunkingConfig(BaseModel):
     strategy: str = Field(default="markdown_header_recursive")
@@ -80,12 +85,11 @@ class ChunkingConfig(BaseModel):
     child_overlap: int = Field(default=50, ge=0)
     parent_overlap: int = Field(default=0, ge=0)
     heading_levels: list[str] = Field(default_factory=lambda: ["#", "##", "###"])
-    separators: list[str] = Field(
-        default_factory=lambda: ["\n\n", "\n", " ", ""]
-    )
+    separators: list[str] = Field(default_factory=lambda: ["\n\n", "\n", " ", ""])
     size_counter: str = Field(default="transformers.AutoTokenizer")
     fallback_counter: str = Field(default="tiktoken")
     max_input_tokens: int = Field(default=8192, ge=256)
+
 
 class DenseRetrievalConfig(BaseModel):
     provider: str = Field(default="sentence-transformers")
@@ -95,11 +99,13 @@ class DenseRetrievalConfig(BaseModel):
     similarity_metric: str = Field(default="cosine")
     input_formatting: dict[str, str] = Field(default_factory=dict)
 
+
 class LexicalRetrievalConfig(BaseModel):
     library: str = Field(default="bm25s")
     case: str = Field(default="lowercase")
     stop_words_removed: bool = Field(default=True)
     stemming_enabled: bool = Field(default=True)
+
 
 class RerankerConfig(BaseModel):
     enabled: bool = Field(default=True)
@@ -107,25 +113,31 @@ class RerankerConfig(BaseModel):
     top_n: int = Field(default=50, ge=1)
     top_k: int = Field(default=10, ge=1)
 
+
 class HybridRetrievalConfig(BaseModel):
     k: int = Field(default=60, ge=1, description="RRF constant k")
     reranker: RerankerConfig = Field(default_factory=RerankerConfig)
 
+
 class ContextManagementConfig(BaseModel):
     max_tokens: int = Field(default=4000, ge=100)
+
 
 class QueryRewritingConfig(BaseModel):
     enabled: bool = Field(default=True)
     model: str = Field(default="groq/llama-3.1-8b-instant")
 
+
 class AdaptiveRetrievalConfig(BaseModel):
     enabled: bool = Field(default=True)
     default_strategy: Literal["lexical", "dense", "hybrid"] = Field(default="hybrid")
+
 
 class SelfRagConfig(BaseModel):
     enabled: bool = Field(default=True)
     decision_method: str = Field(default="llm")
     model: str = Field(default="groq/llama-3.1-8b-instant")
+
 
 class GuardrailsConfig(BaseModel):
     enabled: bool = Field(default=True)
@@ -135,11 +147,13 @@ class GuardrailsConfig(BaseModel):
     enable_injection_detection: bool = Field(default=True)
     model: str = Field(default="groq/llama-3.1-8b-instant")
 
+
 class EvalsThresholdsConfig(BaseModel):
     context_precision: float = Field(default=0.85, ge=0.0, le=1.0)
     context_recall: float = Field(default=0.85, ge=0.0, le=1.0)
     faithfulness: float = Field(default=0.90, ge=0.0, le=1.0)
     answer_relevancy: float = Field(default=0.85, ge=0.0, le=1.0)
+
 
 class EvalsConfig(BaseModel):
     framework: str = Field(default="deepeval")
@@ -149,16 +163,17 @@ class EvalsConfig(BaseModel):
     )
     thresholds: EvalsThresholdsConfig = Field(default_factory=EvalsThresholdsConfig)
 
+
 class GenerationFallbacksConfig(BaseModel):
     enabled: bool = Field(default=True)
-    models: list[str] = Field(
-        default_factory=lambda: ["ollama/llama3.2:3b", "openai/gpt-4o-mini"]
-    )
+    models: list[str] = Field(default_factory=lambda: ["ollama/llama3.2:3b", "openai/gpt-4o-mini"])
+
 
 class GenerationCitationsConfig(BaseModel):
     enabled: bool = Field(default=True)
     format: str = Field(default="bracketed")
     show_provenance: bool = Field(default=True)
+
 
 class GenerationConfig(BaseModel):
     model: str = Field(default="groq/llama-3.3-70b-versatile")
@@ -166,17 +181,15 @@ class GenerationConfig(BaseModel):
     max_tokens: int = Field(default=1500, ge=1)
     stream: bool = Field(default=True)
     timeout_seconds: float = Field(default=15.0, gt=0.0)
-    fallbacks: GenerationFallbacksConfig = Field(
-        default_factory=GenerationFallbacksConfig
-    )
-    citations: GenerationCitationsConfig = Field(
-        default_factory=GenerationCitationsConfig
-    )
+    fallbacks: GenerationFallbacksConfig = Field(default_factory=GenerationFallbacksConfig)
+    citations: GenerationCitationsConfig = Field(default_factory=GenerationCitationsConfig)
+
 
 class CliConfig(BaseModel):
     theme: str = Field(default="dark")
     show_waterfall: bool = Field(default=True)
     show_provenance: bool = Field(default=True)
+
 
 class AppConfig(BaseModel):
     """
@@ -193,19 +206,16 @@ class AppConfig(BaseModel):
     lexical_retrieval: LexicalRetrievalConfig = Field(default_factory=LexicalRetrievalConfig)
     hybrid_retrieval: HybridRetrievalConfig = Field(default_factory=HybridRetrievalConfig)
     reranking: RerankerConfig = Field(default_factory=RerankerConfig)
-    context_management: ContextManagementConfig = Field(
-        default_factory=ContextManagementConfig
-    )
+    context_management: ContextManagementConfig = Field(default_factory=ContextManagementConfig)
     query_rewriting: QueryRewritingConfig = Field(default_factory=QueryRewritingConfig)
-    adaptive_retrieval: AdaptiveRetrievalConfig = Field(
-        default_factory=AdaptiveRetrievalConfig
-    )
+    adaptive_retrieval: AdaptiveRetrievalConfig = Field(default_factory=AdaptiveRetrievalConfig)
     self_rag: SelfRagConfig = Field(default_factory=SelfRagConfig)
     guardrails: GuardrailsConfig = Field(default_factory=GuardrailsConfig)
     evals: EvalsConfig = Field(default_factory=EvalsConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     cli: CliConfig = Field(default_factory=CliConfig)
     secrets: EnvSecrets = Field(default_factory=EnvSecrets)
+
 
 def load_config(
     config_path: Path | str | None = None,
@@ -230,9 +240,7 @@ def load_config(
     if config_path is not None:
         resolved_config_path = Path(config_path)
         if not resolved_config_path.exists():
-            raise FileNotFoundError(
-                f"Configuration file not found at: {resolved_config_path}"
-            )
+            raise FileNotFoundError(f"Configuration file not found at: {resolved_config_path}")
     else:
         resolved_config_path = Path("config.toml")
 

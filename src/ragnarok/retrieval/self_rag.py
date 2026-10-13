@@ -46,8 +46,7 @@ class LLMClientProtocol(Protocol):
         messages: list[dict[str, str]],
         temperature: float = 0.0,
         **kwargs: Any,
-    ) -> Any:
-        ...
+    ) -> Any: ...
 
 
 class DefaultLiteLLMClient:

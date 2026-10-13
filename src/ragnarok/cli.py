@@ -26,6 +26,7 @@ app = typer.Typer(
 )
 console = Console()
 
+
 @app.command(name="doctor")
 def doctor() -> None:
     """
@@ -47,10 +48,9 @@ def doctor() -> None:
         console.print("[bold green]Setup status: READY TO DEVELOP[/bold green]")
         raise typer.Exit(code=0)
     else:
-        console.print(
-            "[bold red]Setup status: INCOMPLETE — Resolve failures above[/bold red]"
-        )
+        console.print("[bold red]Setup status: INCOMPLETE — Resolve failures above[/bold red]")
         raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
     app()

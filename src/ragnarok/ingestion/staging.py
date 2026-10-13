@@ -123,9 +123,7 @@ class StagingService:
         self.raw_dir = Path(raw_dir)
         self.parsed_dir = Path(parsed_dir)
         self.supported_formats = (
-            supported_formats
-            if supported_formats is not None
-            else [".pdf", ".docx", ".md", ".txt"]
+            supported_formats if supported_formats is not None else [".pdf", ".docx", ".md", ".txt"]
         )
 
         # Ensure directories exist

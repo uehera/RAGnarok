@@ -146,11 +146,7 @@ class RelationalRepository:
                 clauses.append(sql.SQL("chunk_index <= %s"))
                 params.append(max_chunk_index)
 
-        where_part = (
-            sql.SQL("WHERE ") + sql.SQL(" AND ").join(clauses)
-            if clauses
-            else sql.SQL("")
-        )
+        where_part = sql.SQL("WHERE ") + sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("")
 
         query = sql.SQL("SELECT chunk_id FROM chunks {where} ORDER BY chunk_index ASC;").format(
             where=where_part
@@ -480,6 +476,32 @@ class RelationalRepository:
                 )
                 for row in rows
             ]
+
+    def get_chunks_by_ids(self, chunk_ids: list[UUID]) -> dict[UUID, ChildChunk]:
+        """Retrieves child chunks matching a list of chunk UUIDs."""
+        if not chunk_ids:
+            return {}
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT chunk_id, document_id, parent_chunk_id, content, chunk_index, heading_path
+                FROM chunks
+                WHERE chunk_id = ANY(%s);
+                """,
+                (chunk_ids,),
+            )
+            rows = cur.fetchall()
+            return {
+                row[0]: ChildChunk(
+                    chunk_id=row[0],
+                    document_id=row[1],
+                    parent_chunk_id=row[2],
+                    content=row[3],
+                    chunk_index=row[4],
+                    heading_path=cast(list[str], row[5] or []),
+                )
+                for row in rows
+            }
 
     def delete_parent_chunk(self, parent_chunk_id: UUID) -> bool:
         """

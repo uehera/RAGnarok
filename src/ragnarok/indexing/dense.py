@@ -298,9 +298,7 @@ class DenseIndex:
                 # No chunks match metadata criteria: return empty list immediately
                 return []
 
-            allowlist_handles = np.ascontiguousarray(
-                np.array(valid_handles, dtype=np.uint64)
-            )
+            allowlist_handles = np.ascontiguousarray(np.array(valid_handles, dtype=np.uint64))
             search_k = min(top_k, len(valid_handles))
             scores, handles = self.index.search(
                 qvec,

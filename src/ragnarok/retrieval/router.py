@@ -48,9 +48,7 @@ _FILENAME_PATTERN = re.compile(
 _SNAKE_CASE_PATTERN = re.compile(r"\b[a-zA-Z_][a-zA-Z0-9]*_[a-zA-Z0-9_]+\b")
 _CAMEL_CASE_PATTERN = re.compile(r"\b[a-z]+[A-Z][a-zA-Z0-9]*\b")
 _PASCAL_CASE_PATTERN = re.compile(r"\b[A-Z][a-z0-9]+[A-Z][a-zA-Z0-9]*\b")
-_CALL_OR_ACCESS_PATTERN = re.compile(
-    r"\b[a-zA-Z_][a-zA-Z0-9_]*(?:\(\)|\.[a-zA-Z_][a-zA-Z0-9_]*)\b"
-)
+_CALL_OR_ACCESS_PATTERN = re.compile(r"\b[a-zA-Z_][a-zA-Z0-9_]*(?:\(\)|\.[a-zA-Z_][a-zA-Z0-9_]*)\b")
 _ERROR_STATUS_PATTERN = re.compile(
     r"\b(?:HTTP\s*)?(?:4\d\d|5\d\d)\b|\b(?:ERR|ERROR|FATAL|FAIL)_[A-Z0-9_]+\b|\b[A-Z][a-zA-Z0-9]*(?:Error|Exception|Fault|Warning)\b"
 )
@@ -59,7 +57,9 @@ _VERSION_OR_UUID_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _ACRONYM_TECHNICAL_PATTERN = re.compile(r"\b[A-Z]{2,}[0-9a-zA-Z]*\b")
-_COMMON_ALL_CAPS = frozenset({"AND", "OR", "NOT", "THE", "IS", "IN", "AT", "FOR", "TO", "OF", "ON", "BY"})
+_COMMON_ALL_CAPS = frozenset(
+    {"AND", "OR", "NOT", "THE", "IS", "IN", "AT", "FOR", "TO", "OF", "ON", "BY"}
+)
 
 # Semantic and conceptual indicators
 _SEMANTIC_PATTERNS = [
