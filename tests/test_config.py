@@ -33,6 +33,7 @@ def test_default_config_loading() -> None:
     assert config.generation.temperature <= 0.2  # Grounding invariant
     assert len(config.generation.fallbacks.models) > 0
 
+
 def test_custom_toml_loading(tmp_path: Path) -> None:
     """Verifies loading from an explicit custom TOML file."""
     custom_toml = tmp_path / "custom_config.toml"
@@ -70,11 +71,13 @@ max_tokens = 2000
     assert config.embedding.model == "custom-embed-model"
     assert config.generation.temperature == 0.05
 
+
 def test_nonexistent_config_raises_error(tmp_path: Path) -> None:
     """Verifies that an explicit nonexistent path raises FileNotFoundError."""
     missing_file = tmp_path / "does_not_exist.toml"
     with pytest.raises(FileNotFoundError):
         load_config(config_path=missing_file)
+
 
 def test_invalid_settings_validation_errors() -> None:
     """Verifies that out-of-bound settings trigger Pydantic validation errors."""
@@ -83,6 +86,7 @@ def test_invalid_settings_validation_errors() -> None:
 
     with pytest.raises(ValidationError):
         GenerationConfig.model_validate({"temperature": 2.5})  # le=2.0 required
+
 
 def test_env_secrets_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verifies that secrets are loaded dynamically from an env file with zero hardcoded values."""
@@ -106,12 +110,6 @@ GROQ_API_KEY="gsk-test-groq-key-67890"
         == "postgresql://custom_user:custom_pass@localhost:5433/custom_db"
     )
     assert config.secrets.openai_api_key is not None
-    assert (
-        config.secrets.openai_api_key.get_secret_value()
-        == "sk-test-secret-key-12345"
-    )
+    assert config.secrets.openai_api_key.get_secret_value() == "sk-test-secret-key-12345"
     assert config.secrets.groq_api_key is not None
-    assert (
-        config.secrets.groq_api_key.get_secret_value()
-        == "gsk-test-groq-key-67890"
-    )
+    assert config.secrets.groq_api_key.get_secret_value() == "gsk-test-groq-key-67890"

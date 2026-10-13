@@ -123,6 +123,7 @@ def test_parser_exception_handling_and_failure_boundaries(
     - document status updated to 'failed'
     - raw source file retained in data/raw/
     """
+
     class CorruptedByteParserEngine(ParserEngineProtocol):
         def parse_to_markdown(self, file_path: Path) -> str:
             raise RuntimeError("Corrupted document: invalid byte sequence or damaged header")

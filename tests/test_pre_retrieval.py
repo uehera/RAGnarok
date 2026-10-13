@@ -52,11 +52,13 @@ class MockLLMClient(LLMClientProtocol):
         temperature: float = 0.0,
         **kwargs: Any,
     ) -> Any:
-        self.call_history.append({
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-        })
+        self.call_history.append(
+            {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+        )
         user_content = ""
         for msg in messages:
             if msg.get("role") == "user":
@@ -361,9 +363,7 @@ def test_metadata_filter_engine_postgresql_allowlist_generation(
     _, range_allowlist = filter_engine.filter_query(q_range)
     assert range_allowlist is not None
     assert len(range_allowlist) == 3
-    expected_handles = {
-        id_map.get_handle(children[i].chunk_id) for i in [1, 2, 3]
-    }
+    expected_handles = {id_map.get_handle(children[i].chunk_id) for i in [1, 2, 3]}
     assert set(range_allowlist) == expected_handles
 
     # 3. Query with non-existent filename -> empty allowlist ([])

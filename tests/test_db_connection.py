@@ -28,6 +28,7 @@ def test_database_pool_lifecycle() -> None:
     with pytest.raises(RuntimeError, match="DatabasePool is closed"), pool.connection():
         pass
 
+
 def test_database_pool_context_manager() -> None:
     """Verifies with-statement lifecycle of DatabasePool."""
     with DatabasePool(
@@ -35,6 +36,7 @@ def test_database_pool_context_manager() -> None:
     ) as pool:
         assert not pool.is_closed
     assert pool.is_closed
+
 
 def test_unreachable_database_health_check() -> None:
     """Verifies that an unreachable database returns False without raising unhandled exceptions."""
@@ -45,13 +47,13 @@ def test_unreachable_database_health_check() -> None:
     )
     assert pool.health_check() is False
 
+
 def test_init_schema_missing_file_raises_error() -> None:
     """Verifies that init_schema with a non-existent file path raises FileNotFoundError."""
-    pool = DatabasePool(
-        database_url="postgresql://postgres:postgres@localhost:5432/ragnarok"
-    )
+    pool = DatabasePool(database_url="postgresql://postgres:postgres@localhost:5432/ragnarok")
     with pytest.raises(FileNotFoundError):
         pool.init_schema("nonexistent_schema.sql")
+
 
 def _is_postgres_reachable() -> bool:
     try:
