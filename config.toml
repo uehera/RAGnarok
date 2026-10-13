@@ -75,7 +75,7 @@ max_tokens = 4000
 
 [query_rewriting]
 enabled = true
-model = "groq/llama-3.1-8b-instant"
+model = "groq/openai/gpt-oss-20b"
 
 [adaptive_retrieval]
 enabled = true
@@ -84,7 +84,7 @@ default_strategy = "hybrid"
 [self_rag]
 enabled = true
 decision_method = "llm"
-model = "groq/llama-3.1-8b-instant"
+model = "groq/openai/gpt-oss-20b"
 
 [guardrails]
 enabled = true
@@ -92,7 +92,7 @@ strict_mode = false
 max_query_tokens = 1024
 enable_pii_filter = true
 enable_injection_detection = true
-model = "groq/llama-3.1-8b-instant"
+model = "groq/openai/gpt-oss-20b"
 
 [evals]
 framework = "deepeval"
@@ -106,7 +106,7 @@ faithfulness = 0.90
 answer_relevancy = 0.85
 
 [generation]
-model = "groq/llama-3.3-70b-versatile"
+model = "gemini/gemini-3.1-flash-lite"
 temperature = 0.1
 max_tokens = 1500
 stream = true
@@ -116,7 +116,7 @@ timeout_seconds = 15.0
 enabled = true
 models = [
   "ollama/llama3.2:3b",
-  "openai/gpt-4o-mini"
+  "groq/openai/gpt-oss-20b"
 ]
 
 [generation.citations]
