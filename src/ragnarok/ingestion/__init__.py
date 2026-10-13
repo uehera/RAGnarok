@@ -12,6 +12,7 @@ from ragnarok.ingestion.parser import (
     DocumentParser,
     ParserEngineProtocol,
 )
+from ragnarok.ingestion.pipeline import IngestionPipeline
 from ragnarok.ingestion.staging import (
     DuplicateDocumentError,
     StagingResult,
@@ -26,6 +27,7 @@ __all__ = [
     "DoclingParserEngine",
     "DocumentParser",
     "DuplicateDocumentError",
+    "IngestionPipeline",
     "ParserEngineProtocol",
     "StagingResult",
     "StagingService",

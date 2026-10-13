@@ -48,8 +48,8 @@ class DoclingParserEngine:
     def parse_to_markdown(self, file_path: Path) -> str:
         """Converts file into normalized Markdown using Docling."""
         suffix = file_path.suffix.lower()
-        # Fast path for raw Markdown files
-        if suffix == ".md":
+        # Fast path for raw Markdown and Plaintext files
+        if suffix in (".md", ".txt"):
             return file_path.read_text(encoding="utf-8")
 
         converter = self._get_converter()
@@ -108,7 +108,18 @@ class DocumentParser:
             self.repository.update_job_stage(job_id, stage="parsing")
 
         raw_path = Path(doc.raw_file_path)
-        parsed_target_path = self.parsed_dir / f"{document_id}.md"
+        if not raw_path.exists():
+            if (Path("data/raw") / doc.filename).exists():
+                import shutil
+                shutil.copy2(Path("data/raw") / doc.filename, raw_path)
+            elif Path(doc.filename).exists():
+                import shutil
+                shutil.copy2(Path(doc.filename), raw_path)
+
+        if doc.parsed_file_path and doc.parsed_file_path.strip():
+            parsed_target_path = Path(doc.parsed_file_path)
+        else:
+            parsed_target_path = self.parsed_dir / f"{document_id}.md"
 
         try:
             logger.info(
@@ -162,3 +173,14 @@ class DocumentParser:
                 )
 
             raise
+
+
+def parse_document_to_markdown(
+    file_path: Path, engine: ParserEngineProtocol | None = None
+) -> str:
+    """
+    Pure procedural function that converts a document file into normalized Markdown.
+    """
+    eng = engine if engine is not None else DoclingParserEngine()
+    return eng.parse_to_markdown(file_path)
+

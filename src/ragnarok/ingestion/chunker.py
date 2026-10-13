@@ -266,3 +266,17 @@ class TwoStageChunker:
         )
 
         return parent_chunks, child_chunks
+
+
+def chunk_document(
+    document_id: UUID,
+    markdown_text: str,
+    config: ChunkingConfig | None = None,
+    token_counter: TokenCounterProtocol | None = None,
+) -> tuple[list[ParentChunk], list[ChildChunk]]:
+    """
+    Pure procedural function that runs two-stage parent-child chunking on markdown text.
+    """
+    chunker = TwoStageChunker(config=config, token_counter=token_counter)
+    return chunker.chunk_markdown(markdown_content=markdown_text, document_id=document_id)
+

@@ -190,10 +190,12 @@ class StagingService:
         # Unique file: assign new UUID
         document_id = uuid4()
         suffix = path.suffix.lower()
-        raw_target_path = self.raw_dir / f"{document_id}{suffix}"
-        parsed_target_path = self.parsed_dir / f"{document_id}.md"
+        stem = path.stem
+        short_id = str(document_id)[:8]
+        raw_target_path = self.raw_dir / f"{stem}_{short_id}{suffix}"
+        parsed_target_path = self.parsed_dir / f"{stem}_{short_id}.md"
 
-        # Move file permanently to data/raw/<document_id>.<ext>
+        # Move file permanently to data/raw/<stem>_<short_id>.<ext>
         shutil.move(str(path), str(raw_target_path))
 
         # Register document in PostgreSQL

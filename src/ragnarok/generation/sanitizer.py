@@ -27,6 +27,7 @@ _PASSWORD_PATTERN = re.compile(
     r"(?i)(password|passwd|secret)\s*[:=]\s*['\"]?([^\s'\"\n]{6,})['\"]?"
 )
 _EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+_IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 def sanitize_generated_text(text: str) -> str:
@@ -61,5 +62,8 @@ def sanitize_generated_text(text: str) -> str:
 
     # PII: Email addresses
     sanitized = _EMAIL_PATTERN.sub("[REDACTED EMAIL]", sanitized)
+
+    # Network identifiers: IPv4 addresses
+    sanitized = _IPV4_PATTERN.sub("[REDACTED IP_ADDRESS]", sanitized)
 
     return sanitized
