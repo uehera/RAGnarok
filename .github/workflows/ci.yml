@@ -86,7 +86,7 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d ragnarok -f scripts/init_schema.sql
 
       - name: Execute Full Test Suite (Unit, Integration & Battle Dimensions)
-        run: uv run pytest tests/unit tests/integration tests/battle -v
+        run: uv run pytest tests/ -v --ignore=tests/evals
 
       - name: Execute Continuous Evaluation Benchmark (Golden Dataset & Evaluation Triad)
         run: uv run pytest tests/evals/test_golden_dataset.py -v -s
