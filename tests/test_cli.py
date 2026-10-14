@@ -55,7 +55,20 @@ def test_cli_help_and_command_surface() -> None:
 
 def test_cli_shorthand_aliases_help() -> None:
     """Verifies that all command shorthands are registered and callable."""
-    for cmd in ["query", "q", "ingest", "in", "reindex", "rx", "stats", "st", "doctor", "doc"]:
+    for cmd in [
+        "query",
+        "q",
+        "add",
+        "a",
+        "ingest",
+        "in",
+        "reindex",
+        "rx",
+        "stats",
+        "st",
+        "doctor",
+        "doc",
+    ]:
         res = runner.invoke(app, [cmd, "--help"])
         assert res.exit_code == 0, f"Command alias '{cmd}' failed with exit code {res.exit_code}"
 
@@ -246,7 +259,9 @@ def test_probe_chunk(tmp_path: Path) -> None:
 
     with (
         patch("ragnarok.ingestion.parser.parse_document_to_markdown", return_value=doc.read_text()),
-        patch("ragnarok.ingestion.chunker.chunk_document", return_value=([mock_parent], [mock_child])),
+        patch(
+            "ragnarok.ingestion.chunker.chunk_document", return_value=([mock_parent], [mock_child])
+        ),
     ):
         res = runner.invoke(app, ["test", "chunk", str(doc)])
         assert res.exit_code == 0
@@ -294,8 +309,12 @@ def test_probe_route() -> None:
     with (
         patch("ragnarok.retrieval.self_rag.SelfRagGate.evaluate", return_value=mock_gate_res),
         patch("ragnarok.retrieval.rewriter.QueryRewriter.rewrite", return_value="rewritten query"),
-        patch("ragnarok.retrieval.router.AdaptiveRouter.route", return_value=RetrievalStrategy.LEXICAL),
-        patch("ragnarok.retrieval.router.AdaptiveRouter.analyze_signals", return_value=mock_signals),
+        patch(
+            "ragnarok.retrieval.router.AdaptiveRouter.route", return_value=RetrievalStrategy.LEXICAL
+        ),
+        patch(
+            "ragnarok.retrieval.router.AdaptiveRouter.analyze_signals", return_value=mock_signals
+        ),
     ):
         res = runner.invoke(app, ["test", "route", "Explain bm25s"])
         assert res.exit_code == 0
@@ -570,3 +589,66 @@ def test_repl_session_query_execution() -> None:
         assert len(session.history) == 2
         assert session.history[0]["content"] == "What is parent-child chunking?"
         assert session.history[1]["content"] == "Streaming test response."
+
+
+def test_repl_session_dev_command_guard() -> None:
+    """Verifies ReplSession intercepts developer workspace commands with a notice."""
+    session = ReplSession()
+    session.execute_query("ingest docs/")
+    assert session.query_count == 0
+    assert len(session.history) == 0
+
+
+def test_dev_shell_session_dispatch() -> None:
+    """Verifies DevShellSession dispatches commands and exits cleanly."""
+    from ragnarok.cli.dev_shell import DevShellSession
+
+    dev_session = DevShellSession()
+
+    # Basic controls
+    assert dev_session.dispatch("help") is True
+    assert dev_session.dispatch("/help") is True
+    assert dev_session.dispatch("clear") is True
+
+    # Chat interceptor
+    assert dev_session.dispatch("chat") is True
+
+    # Exit signals
+    assert dev_session.dispatch("exit") is False
+    assert dev_session.dispatch("quit") is False
+    assert dev_session.dispatch("/exit") is False
+
+
+def test_dev_command_and_alias_help() -> None:
+    """Verifies rag dev and rag d help commands."""
+    res_dev = runner.invoke(app, ["dev", "--help"])
+    assert res_dev.exit_code == 0
+    assert "Developer Workspace" in res_dev.output
+
+    res_d = runner.invoke(app, ["d", "--help"])
+    assert res_d.exit_code == 0
+
+
+def test_add_command_and_dev_shell(tmp_path: Path) -> None:
+    """Verifies rag add and dev shell add stage files into destination."""
+    from ragnarok.cli.dev_shell import DevShellSession
+
+    src_file = tmp_path / "sample_external.md"
+    src_file.write_text("# External Document\nSample content for testing.", encoding="utf-8")
+
+    dest_dir = tmp_path / "docs"
+
+    # Test CLI invocation
+    res = runner.invoke(app, ["add", str(src_file), str(dest_dir)])
+    assert res.exit_code == 0
+    staged_file = dest_dir / "sample_external.md"
+    assert staged_file.exists()
+    assert (
+        staged_file.read_text(encoding="utf-8")
+        == "# External Document\nSample content for testing."
+    )
+
+    # Test dev_shell dispatch with both `rag add` and `add`
+    dev_session = DevShellSession()
+    assert dev_session.dispatch(f"rag add {src_file} {dest_dir}") is True
+    assert dev_session.dispatch(f"add {src_file} {dest_dir}") is True

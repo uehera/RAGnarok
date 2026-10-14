@@ -29,6 +29,7 @@ def test_concurrency_parallel_document_ingestions(
     Simulates 10 concurrent documents being ingested simultaneously via worker threads.
     Asserts zero deadlocks, clean state transitions, and pool scaling.
     """
+
     def ingest_worker(idx: int) -> Document:
         doc_id = uuid4()
         raw_file = isolated_paths["raw"] / f"concurrent_{idx}_{str(doc_id)[:8]}.txt"
@@ -88,9 +89,7 @@ def test_concurrency_parallel_document_ingestions(
         assert db_doc.status == "parsed"
 
 
-def test_concurrency_parallel_retrieval_queries(
-    repo: RelationalRepository, tmp_path: Path
-) -> None:
+def test_concurrency_parallel_retrieval_queries(repo: RelationalRepository, tmp_path: Path) -> None:
     """
     Fires 20 concurrent queries across BM25 and TurboVec searchers.
     Asserts zero thread contention, deadlocks, or cross-talk between queries.

@@ -57,6 +57,7 @@ def test_profiling_file_descriptor_leak_audit(tmp_path: Path) -> None:
     Parses 50 documents consecutively.
     Asserts open file descriptors do not accumulate or leak across operations.
     """
+
     def get_open_fd_count() -> int:
         fd_dir = Path("/proc/self/fd")
         if fd_dir.exists():

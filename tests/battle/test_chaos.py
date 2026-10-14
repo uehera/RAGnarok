@@ -72,7 +72,9 @@ def test_chaos_mid_transaction_disconnect_rollback(repo: RelationalRepository) -
 
     # Assert zero orphaned child chunks exist in database
     retrieved_children = repo.get_child_chunks(doc_id)
-    assert len(retrieved_children) == 0, "Orphaned child chunks detected after mid-transaction failure"
+    assert len(retrieved_children) == 0, (
+        "Orphaned child chunks detected after mid-transaction failure"
+    )
     assert len(repo.get_parent_chunks(doc_id)) == 0
 
 
@@ -109,17 +111,17 @@ def test_chaos_interrupted_index_disk_write(tmp_path: Path) -> None:
         pytest.raises(OSError, match="No space left on device"),
     ):
         # Attempt write that crashes mid-flight
-            chunk2 = ChildChunk(
-                chunk_id=uuid4(),
-                document_id=uuid4(),
-                parent_chunk_id=uuid4(),
-                content="Corrupting write attempt.",
-                chunk_index=1,
-                heading_path=[],
-            )
-            idx2 = LexicalIndex(config=cfg)
-            idx2.build([chunk1, chunk2])
-            idx2.save(index_dir)
+        chunk2 = ChildChunk(
+            chunk_id=uuid4(),
+            document_id=uuid4(),
+            parent_chunk_id=uuid4(),
+            content="Corrupting write attempt.",
+            chunk_index=1,
+            heading_path=[],
+        )
+        idx2 = LexicalIndex(config=cfg)
+        idx2.build([chunk1, chunk2])
+        idx2.save(index_dir)
 
     # 3. Assert baseline index mapping is still reloadable and uncorrupted
     loaded = LexicalIndex.load(index_dir, config=cfg)
