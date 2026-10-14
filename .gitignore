@@ -34,6 +34,7 @@ venv/
 # Testing, linting & coverage caches
 .pytest_cache/
 .ruff_cache/
+.deepeval/
 .coverage
 htmlcov/
 
@@ -44,7 +45,6 @@ Thumbs.db
 .vscode/
 *.swp
 
-# 
+# Developer
 .agents/
 dev/
-PROMPT.txt

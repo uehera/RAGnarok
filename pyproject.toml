@@ -36,6 +36,7 @@ dependencies = [
 
 [project.scripts]
 rag = "ragnarok.cli.main:app"
+ragnarok = "ragnarok.cli.main:app"
 
 [build-system]
 requires = ["uv_build>=0.12.18,<0.13.0"]
@@ -64,3 +65,9 @@ ignore = ["E501"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:deepeval"
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
