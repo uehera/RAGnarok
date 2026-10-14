@@ -279,4 +279,3 @@ def chunk_document(
     """
     chunker = TwoStageChunker(config=config, token_counter=token_counter)
     return chunker.chunk_markdown(markdown_content=markdown_text, document_id=document_id)
-

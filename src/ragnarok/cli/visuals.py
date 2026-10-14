@@ -45,9 +45,7 @@ def render_latency_waterfall(
         bar = "█" * filled + " " * (bar_width - filled)
 
         label = f"{stage_name:<{max_label}}"
-        target.print(
-            f"  {label} : [{bar}] {elapsed_ms:>7.0f} ms ({pct:>5.1f}%)"
-        )
+        target.print(f"  {label} : [{bar}] {elapsed_ms:>7.0f} ms ({pct:>5.1f}%)")
 
     target.print(f"  {'Total Latency':<{max_label}} : [bold]{total_ms:,.0f} ms[/bold]")
     target.print()
@@ -218,12 +216,9 @@ def render_stats_dashboard(
         f"Size on disk: {index_stats.get('dense_size_mb', 0.0):.1f} MB (data/indexes/dense/)\n"
     )
     idx_text.append(
-        f"• Relational Database    : {index_stats.get('db_size_mb', 0.0):.1f} MB "
-        f"(PostgreSQL)\n"
+        f"• Relational Database    : {index_stats.get('db_size_mb', 0.0):.1f} MB (PostgreSQL)\n"
     )
-    idx_panel = Panel(
-        idx_text, title="[bold cyan]Search Indexes[/bold cyan]", border_style="cyan"
-    )
+    idx_panel = Panel(idx_text, title="[bold cyan]Search Indexes[/bold cyan]", border_style="cyan")
 
     target.print()
     target.rule("[bold cyan]RAGnarok System Storage & Index Status[/bold cyan]")

@@ -111,9 +111,11 @@ class DocumentParser:
         if not raw_path.exists():
             if (Path("data/raw") / doc.filename).exists():
                 import shutil
+
                 shutil.copy2(Path("data/raw") / doc.filename, raw_path)
             elif Path(doc.filename).exists():
                 import shutil
+
                 shutil.copy2(Path(doc.filename), raw_path)
 
         if doc.parsed_file_path and doc.parsed_file_path.strip():
@@ -175,12 +177,9 @@ class DocumentParser:
             raise
 
 
-def parse_document_to_markdown(
-    file_path: Path, engine: ParserEngineProtocol | None = None
-) -> str:
+def parse_document_to_markdown(file_path: Path, engine: ParserEngineProtocol | None = None) -> str:
     """
     Pure procedural function that converts a document file into normalized Markdown.
     """
     eng = engine if engine is not None else DoclingParserEngine()
     return eng.parse_to_markdown(file_path)
-

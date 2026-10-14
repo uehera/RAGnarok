@@ -11,7 +11,6 @@ from __future__ import annotations
 import structlog
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
 
 logger = structlog.get_logger(__name__)
 
@@ -35,36 +34,83 @@ class ReplSession:
 
     def print_banner(self) -> None:
         """Renders the REPL session welcome banner."""
-        banner = Text()
-        banner.append("RAGnarok", style="bold cyan")
-        banner.append(" Interactive Developer Shell\n", style="white")
-        banner.append("Type a query to search and synthesize. ", style="dim")
-        banner.append("Type /help for slash commands.\n", style="dim")
-        banner.append("Type /exit or /quit to end the session.", style="dim")
-        self.console.print(Panel(banner, border_style="cyan"))
+        from rich.table import Table
+
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(style="bold cyan", width=18)
+        grid.add_column(style="white")
+
+        grid.add_row("Environment", "[bold white]RAGnarok Interactive Chat Shell[/bold white]")
+        grid.add_row("Mode", "Grounded Conversational Q&A with Live Token Streaming & Footnotes")
+        grid.add_row("Session Controls", "/help (extensions & options) | /clear | /exit (quit)")
+        grid.add_row(
+            "Live Extensions",
+            "/waterfall (timing waterfall) | /provenance (rank tracking) | /strategy | /rerank | /budget",
+        )
+        grid.add_row(
+            "Developer Tools",
+            "[dim]Exit and run [bold yellow]rag -dev[/bold yellow] for ingestion, reindexing, diagnostics & test probes[/dim]",
+        )
+
+        panel = Panel(
+            grid,
+            title="[bold cyan]RAGnarok Chat Shell[/bold cyan]",
+            subtitle="[dim]Type your inquiry to retrieve and stream answer with verified citations[/dim]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+        self.console.print(panel)
 
     def print_help(self) -> None:
         """Displays the slash command reference."""
         from rich.table import Table
 
         help_table = Table(
-            title="Slash Commands",
+            title="Chat Shell Extensions & Slash Commands",
             show_header=True,
             header_style="bold magenta",
             border_style="bright_black",
         )
-        help_table.add_column("Command", justify="left", width=30)
+        help_table.add_column("Command", justify="left", width=32)
+        help_table.add_column("Type", justify="center", width=14)
         help_table.add_column("Description", justify="left")
-        help_table.add_row("/strategy <lexical|dense|hybrid>", "Override retrieval strategy")
-        help_table.add_row("/rerank <on|off>", "Toggle Cross-Encoder reranking")
-        help_table.add_row("/budget <tokens>", "Set context token budget")
-        help_table.add_row("/waterfall", "Toggle latency waterfall display")
-        help_table.add_row("/provenance", "Toggle candidate provenance table")
-        help_table.add_row("/stats", "Show session statistics")
-        help_table.add_row("/clear", "Clear conversation history")
-        help_table.add_row("/exit, /quit", "Exit the shell")
-        help_table.add_row("/help", "Show this help")
+
+        help_table.add_row(
+            "/waterfall",
+            "Extension",
+            "Toggle pipeline latency waterfall chart after every response",
+        )
+        help_table.add_row(
+            "/provenance",
+            "Extension",
+            "Toggle candidate score and rank provenance table after every response",
+        )
+        help_table.add_row(
+            "/strategy <lexical|dense|hybrid>",
+            "Override",
+            "Dynamically change retrieval strategy for subsequent queries",
+        )
+        help_table.add_row(
+            "/rerank <on|off>",
+            "Override",
+            "Dynamically enable or disable the Cross-Encoder reranker",
+        )
+        help_table.add_row(
+            "/budget <tokens>",
+            "Override",
+            "Adjust context token budget dynamically (e.g. /budget 3500)",
+        )
+        help_table.add_row(
+            "/stats", "Inspection", "Display current session statistics and active overrides"
+        )
+        help_table.add_row("/clear", "Session", "Clear the terminal conversation history buffer")
+        help_table.add_row("/exit, /quit", "Session", "Exit the interactive chat shell")
+        help_table.add_row("/help", "Session", "Display this reference table")
+
         self.console.print(help_table)
+        self.console.print(
+            "\n[dim]Note: For ingestion, index management, and component probes, run [bold yellow]rag -dev[/bold yellow].[/dim]"
+        )
 
     def handle_slash_command(self, command: str) -> bool:
         """
@@ -85,9 +131,7 @@ class ReplSession:
 
         elif cmd == "/strategy":
             if len(parts) < 2 or parts[1] not in ("lexical", "dense", "hybrid"):
-                self.console.print(
-                    "[yellow]Usage: /strategy <lexical|dense|hybrid>[/yellow]"
-                )
+                self.console.print("[yellow]Usage: /strategy <lexical|dense|hybrid>[/yellow]")
             else:
                 self.strategy = parts[1]
                 self.console.print(f"[green]✓[/green] Strategy set to: {self.strategy}")
@@ -151,6 +195,32 @@ class ReplSession:
         Executes a full retrieval and generation pipeline for a single query turn,
         rendering the streamed answer and optional metrics.
         """
+        # Guard against dev workspace commands entered directly in chat shell
+        first_token = query.strip().split()[0].lower() if query.strip() else ""
+        if first_token in (
+            "ingest",
+            "in",
+            "reindex",
+            "rx",
+            "doctor",
+            "doc",
+            "test",
+            "parse",
+            "chunk",
+            "embed",
+            "bm25",
+            "route",
+            "rerank",
+            "auto",
+            "eval",
+        ):
+            self.console.print(
+                f"\n[bold yellow]Notice:[/bold yellow] [dim]'{first_token}' is a developer workspace command.[/dim]\n"
+                "[cyan]The chat shell is dedicated to conversational Q&A. To execute document ingestion, index rebuilds, or component probes, exit and run:[/cyan]\n"
+                "  [bold green]rag -dev[/bold green]  [dim](or 'rag --dev')[/dim]\n"
+            )
+            return
+
         self.query_count += 1
         self.history.append({"role": "user", "content": query})
 

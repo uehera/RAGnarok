@@ -47,12 +47,63 @@ app = typer.Typer(
     name="rag",
     help="RAGnarok Developer CLI Admin Deck — Unified command interface for retrieval, "
     "ingestion, diagnostics, and component probing.",
-    no_args_is_help=True,
+    no_args_is_help=False,
     rich_markup_mode="rich",
 )
 app.add_typer(test_app, name="test", rich_help_panel="Component Probes")
 app.add_typer(test_app, name="t", hidden=True)
 console = Console()
+
+
+# ---------------------------------------------------------------------------
+# Root Callback: rag -c (chat) and rag -dev (dev workspace)
+# ---------------------------------------------------------------------------
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    chat: bool = typer.Option(
+        False,
+        "-c",
+        "--chat",
+        help="Launch interactive Chat Shell for conversational Q&A.",
+    ),
+    dev: bool = typer.Option(
+        False,
+        "-dev",
+        "--dev",
+        help="Launch interactive Developer Workspace for ingestion, diagnostics, and probes.",
+    ),
+) -> None:
+    """RAGnarok CLI Admin Deck & Local Runtime Environments."""
+    if ctx.invoked_subcommand is None:
+        if chat:
+            chat_command()
+        elif dev:
+            dev_command()
+        else:
+            console.print(ctx.get_help())
+            raise typer.Exit(code=0)
+
+
+# ---------------------------------------------------------------------------
+# rag dev (alias: d, -dev, --dev)
+# ---------------------------------------------------------------------------
+@app.command(name="dev", rich_help_panel="Interactive Environments")
+def dev_command() -> None:
+    """
+    Launch interactive Developer Workspace (Dev Deck) for ingestion, diagnostics, and probes.
+
+    Aliases: `rag d`, `rag -dev`, `rag --dev`
+    """
+    from ragnarok.cli.dev_shell import run_dev_shell
+
+    run_dev_shell(console=console)
+
+
+@app.command(name="d", hidden=True)
+def dev_alias() -> None:
+    """Shorthand for `rag dev`."""
+    dev_command()
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +116,9 @@ def query_command(
         "hybrid", "--strategy", "-s", help="Retrieval strategy: lexical, dense, hybrid."
     ),
     no_rerank: bool = typer.Option(False, "--no-rerank", help="Disable Cross-Encoder reranking."),
-    budget: int = typer.Option(0, "--budget", "-b", help="Override context token budget (0=default)."),
+    budget: int = typer.Option(
+        0, "--budget", "-b", help="Override context token budget (0=default)."
+    ),
     show_waterfall: bool = typer.Option(False, "--waterfall", "-w", help="Show latency waterfall."),
     show_provenance: bool = typer.Option(
         False, "--provenance", "-p", help="Show retrieval provenance table."
@@ -116,6 +169,7 @@ def query_command(
         # Optional provenance display
         if show_provenance:
             from ragnarok.cli.visuals import render_provenance_table
+
             render_provenance_table(candidates, console=console)
 
         # Optional waterfall display
@@ -188,12 +242,124 @@ def chat_alias() -> None:
 
 
 # ---------------------------------------------------------------------------
+# rag add <file_path> [destination] (alias: a)
+# ---------------------------------------------------------------------------
+@app.command(name="add", rich_help_panel="Pipeline Operations")
+def add_command(
+    file_path: Path = typer.Argument(
+        ...,
+        help="Path to external source file to stage into ingestion workspace.",
+    ),
+    destination: Path = typer.Argument(
+        Path("docs"),
+        help="Destination directory inside project (defaults to docs/).",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force overwrite existing destination file if different.",
+    ),
+) -> None:
+    """
+    Stage an external file into docs/ or custom directory for subsequent ingestion.
+
+    Aliases: `rag add`, `rag a`
+    """
+    import hashlib
+    import shutil
+
+    from rich.table import Table
+
+    resolved_src = file_path.expanduser().resolve()
+    if not resolved_src.exists():
+        console.print(f"[bold red]Source file not found: {resolved_src}[/bold red]")
+        raise typer.Exit(code=1)
+
+    if not resolved_src.is_file():
+        console.print(f"[bold red]Source path is not a file: {resolved_src}[/bold red]")
+        raise typer.Exit(code=1)
+
+    from ragnarok.core.config import load_config
+
+    config = load_config()
+    suffix = resolved_src.suffix.lower()
+    if suffix not in config.ingestion.supported_formats:
+        console.print(
+            f"[bold yellow]Warning: '{suffix}' is not in configured supported formats "
+            f"({', '.join(config.ingestion.supported_formats)}).[/bold yellow]"
+        )
+
+    # Destination directory setup
+    dest_dir = destination.expanduser().resolve()
+    if dest_dir.is_file():
+        console.print(
+            f"[bold red]Destination path is an existing file, must be a directory: {dest_dir}[/bold red]"
+        )
+        raise typer.Exit(code=1)
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    target_path = dest_dir / resolved_src.name
+
+    status_str = "Copied"
+    if target_path.exists():
+        with open(resolved_src, "rb") as f1, open(target_path, "rb") as f2:
+            h1 = hashlib.sha256(f1.read()).hexdigest()
+            h2 = hashlib.sha256(f2.read()).hexdigest()
+        if h1 == h2:
+            status_str = "Identical (Skipped)"
+        else:
+            shutil.copy2(resolved_src, target_path)
+            status_str = "Overwritten"
+    else:
+        shutil.copy2(resolved_src, target_path)
+
+    size_bytes = target_path.stat().st_size
+    size_str = (
+        f"{size_bytes / 1024:.1f} KB"
+        if size_bytes < 1024 * 1024
+        else f"{size_bytes / (1024 * 1024):.2f} MB"
+    )
+
+    table = Table(
+        title="Document Staged to Ingestion Workspace",
+        show_header=True,
+        header_style="bold cyan",
+        border_style="bright_black",
+    )
+    table.add_column("Property", style="bold yellow", width=16)
+    table.add_column("Value", style="white")
+
+    table.add_row("Source", str(resolved_src))
+    table.add_row("Destination", str(target_path))
+    table.add_row("File Size", size_str)
+    table.add_row("Status", f"[bold green]{status_str}[/bold green]")
+    table.add_row(
+        "Next Step",
+        f"[bold cyan]uv run rag ingest {destination}[/bold cyan]  (or [cyan]ingest {destination}[/cyan] in [bold yellow]rag -dev[/bold yellow])",
+    )
+    console.print(table)
+
+
+@app.command(name="a", hidden=True)
+def add_alias(
+    file_path: Path = typer.Argument(..., help="Path to source file."),
+    destination: Path = typer.Argument(Path("docs"), help="Destination directory."),
+    force: bool = typer.Option(False, "--force", "-f", help="Force overwrite."),
+) -> None:
+    """Shorthand for `rag add`."""
+    add_command(file_path, destination, force)
+
+
+# ---------------------------------------------------------------------------
 # rag ingest <path> (alias: in)
 # ---------------------------------------------------------------------------
 @app.command(name="ingest", rich_help_panel="Pipeline Operations")
 def ingest_command(
     path: Path = typer.Argument(..., help="File or directory path to ingest."),
-    batch_size: int = typer.Option(0, "--batch-size", "-n", help="Override batch size (0=default)."),
+    batch_size: int = typer.Option(
+        0, "--batch-size", "-n", help="Override batch size (0=default)."
+    ),
 ) -> None:
     """
     Ingest a single document or directory of documents with deduplication and progress bars.
@@ -238,7 +404,9 @@ def ingest_command(
 
         if not files:
             console.print(f"[yellow]No supported user files found in: {path}[/yellow]")
-            console.print(f"[dim]Supported formats: {', '.join(config.ingestion.supported_formats)}[/dim]")
+            console.print(
+                f"[dim]Supported formats: {', '.join(config.ingestion.supported_formats)}[/dim]"
+            )
             raise typer.Exit(code=0)
 
         console.print(f"[dim]Found {len(files)} files to ingest[/dim]")
@@ -268,9 +436,7 @@ def ingest_command(
             newly_chunked = False
             for file_path in files:
                 try:
-                    progress.update(
-                        task, description=f"Processing: {file_path.name}"
-                    )
+                    progress.update(task, description=f"Processing: {file_path.name}")
 
                     doc, is_duplicate = pipeline.process_file(file_path)
 
@@ -278,16 +444,12 @@ def ingest_command(
                         succeeded += 1
                         newly_chunked = True
                     else:
-                        console.print(
-                            f"  [yellow]Duplicate skipped: {file_path.name}[/yellow]"
-                        )
+                        console.print(f"  [yellow]Duplicate skipped: {file_path.name}[/yellow]")
                         succeeded += 1
 
                 except Exception as e:
                     failed += 1
-                    console.print(
-                        f"  [red]Failed: {file_path.name} — {e}[/red]"
-                    )
+                    console.print(f"  [red]Failed: {file_path.name} — {e}[/red]")
                 finally:
                     progress.advance(task)
 
@@ -298,9 +460,13 @@ def ingest_command(
             )
             if newly_chunked or not bm25_has_files:
                 try:
-                    progress.update(task, description="Building BM25 and TurboVec search indexes...")
+                    progress.update(
+                        task, description="Building BM25 and TurboVec search indexes..."
+                    )
                     indexed_count = pipeline.reindex()
-                    console.print(f"[dim]Indexed {indexed_count} child chunks into BM25s and TurboVec[/dim]")
+                    console.print(
+                        f"[dim]Indexed {indexed_count} child chunks into BM25s and TurboVec[/dim]"
+                    )
                 except Exception as e:
                     console.print(f"  [yellow]Indexing warning: {e}[/yellow]")
 
@@ -417,16 +583,12 @@ def stats_command() -> None:
                     if row:
                         db_stats[table_name] = row[0]
 
-                cur.execute(
-                    "SELECT COUNT(*) FROM processing_jobs WHERE stage = 'completed';"
-                )
+                cur.execute("SELECT COUNT(*) FROM processing_jobs WHERE stage = 'completed';")
                 row = cur.fetchone()
                 if row:
                     db_stats["jobs_completed"] = row[0]
 
-                cur.execute(
-                    "SELECT COUNT(*) FROM processing_jobs WHERE stage = 'failed';"
-                )
+                cur.execute("SELECT COUNT(*) FROM processing_jobs WHERE stage = 'failed';")
                 row = cur.fetchone()
                 if row:
                     db_stats["jobs_failed"] = row[0]
@@ -521,7 +683,5 @@ def doctor_alias() -> None:
     doctor_command()
 
 
-
 if __name__ == "__main__":
     app()
-

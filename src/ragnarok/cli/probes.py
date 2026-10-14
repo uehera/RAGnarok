@@ -160,8 +160,7 @@ def probe_chunk(
         console.print(child_table)
 
         console.print(
-            f"[green]✓[/green] Chunked into {len(parents)} parents "
-            f"and {len(children)} children"
+            f"[green]✓[/green] Chunked into {len(parents)} parents and {len(children)} children"
         )
 
     except Exception as e:
@@ -289,10 +288,10 @@ def probe_bm25(
                 retriever: Any = bm25s.BM25.load(str(bm25_path), load_corpus=False)
                 query_tokens_arg: Any = query_tokens_list
                 results, scores = retriever.retrieve(query_tokens_arg, k=5)
-                num_docs = getattr(retriever, "num_docs", getattr(retriever, "corpus_size", "unknown"))
-                console.print(
-                    f"[dim]Index loaded: {num_docs} documents indexed[/dim]"
+                num_docs = getattr(
+                    retriever, "num_docs", getattr(retriever, "corpus_size", "unknown")
                 )
+                console.print(f"[dim]Index loaded: {num_docs} documents indexed[/dim]")
                 if scores is not None and len(scores) > 0 and len(scores[0]) > 0:
                     match_table = Table(
                         title="Top-5 BM25 Matches",
@@ -707,8 +706,12 @@ def probe_eval() -> None:
         # Run golden dataset evaluation suite
         result = subprocess.run(
             [
-                "uv", "run", "pytest", "tests/evals/test_golden_dataset.py",
-                "-v", "-s",
+                "uv",
+                "run",
+                "pytest",
+                "tests/evals/test_golden_dataset.py",
+                "-v",
+                "-s",
             ],
             cwd=str(Path.cwd()),
             text=True,

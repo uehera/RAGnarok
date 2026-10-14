@@ -129,9 +129,7 @@ def retrieve_and_assemble_context(
     start_rerank = time.perf_counter()
     if rerank and candidates and config.reranking.enabled:
         try:
-            reranker_model = SentenceTransformerCrossEncoder(
-                model_name=config.reranking.model
-            )
+            reranker_model = SentenceTransformerCrossEncoder(model_name=config.reranking.model)
             candidates = rerank_candidates(
                 query=query,
                 candidates=candidates,
