@@ -85,7 +85,7 @@ flowchart TD
 
 Before running RAGnarok, ensure you have the following installed:
 
-- **Operating System**: Linux, macOS, or Windows (WSL2 recommended)
+- **Operating System**: Linux, macOS, Windows, or WSL2
 - **Python**: Version `3.12` (managed via `uv`)
 - **Package Manager**: [`uv`](https://github.com/astral-sh/uv) ($\ge 0.10$)
 - **Database**: [Docker & Docker Compose](https://www.docker.com/) (runs the PostgreSQL 16 container)
@@ -110,8 +110,9 @@ RAGnarok uses `uv` for reproducible, lightning-fast dependency management:
 uv sync --all-extras --dev
 
 # Activate the virtual environment
-source .venv/bin/activate    # On Linux/macOS
-# .venv\Scripts\activate     # On Windows PowerShell
+source .venv/bin/activate    # On WSL/Linux/macOS
+
+.venv\Scripts\activate     # On Windows PowerShell
 ```
 
 ### 3. Start PostgreSQL Metadata Store
