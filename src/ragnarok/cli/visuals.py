@@ -191,9 +191,9 @@ def render_stats_dashboard(
     """
     target = console if console is not None else Console()
 
-    # PostgreSQL stats panel
+    # DuckDB stats panel
     pg_text = Text()
-    pg_text.append("PostgreSQL Relational Store:\n", style="bold white")
+    pg_text.append("DuckDB Embedded Relational Store:\n", style="bold white")
     pg_text.append(f"• Total Documents Stored     : {db_stats.get('documents', 0)}\n")
     pg_text.append(f"• Total Parent Chunk Contexts : {db_stats.get('parent_chunks', 0)}\n")
     pg_text.append(f"• Total Child Retrieval Chunks: {db_stats.get('chunks', 0)}\n")
@@ -201,7 +201,7 @@ def render_stats_dashboard(
         f"• Ingestion Jobs Completed   : {db_stats.get('jobs_completed', 0)} "
         f"({db_stats.get('jobs_failed', 0)} Failed)\n"
     )
-    pg_panel = Panel(pg_text, title="[bold cyan]Relational Store[/bold cyan]", border_style="cyan")
+    pg_panel = Panel(pg_text, title="[bold cyan]Relational Store (DuckDB)[/bold cyan]", border_style="cyan")
 
     # Index stats panel
     idx_text = Text()
@@ -216,8 +216,12 @@ def render_stats_dashboard(
         f"Size on disk: {index_stats.get('dense_size_mb', 0.0):.1f} MB (data/indexes/dense/)\n"
     )
     idx_text.append(
-        f"• Relational Database    : {index_stats.get('db_size_mb', 0.0):.1f} MB (PostgreSQL)\n"
+        f"• Relational Database    : {index_stats.get('db_size_mb', 0.0):.1f} MB (DuckDB)\n"
     )
+    if "quarantined_files" in index_stats:
+        idx_text.append(
+            f"• Quarantined Injections : {index_stats.get('quarantined_files', 0)} files isolated (data/quarantine/)\n"
+        )
     idx_panel = Panel(idx_text, title="[bold cyan]Search Indexes[/bold cyan]", border_style="cyan")
 
     target.print()

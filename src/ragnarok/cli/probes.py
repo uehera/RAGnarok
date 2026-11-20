@@ -32,9 +32,9 @@ console = Console()
 
 @test_app.command(name="parse")
 def probe_parse(
-    file: Path = typer.Argument(..., help="Path to a document file to parse with Docling."),
+    file: Path = typer.Argument(..., help="Path to a document file to parse with PyMuPDF / text parser."),
 ) -> None:
-    """Probe: Execute Docling on a file and display extracted Markdown structure in memory."""
+    """Probe: Execute layout parser on a file and display extracted Markdown structure in memory."""
     console.rule("[bold cyan]Document Parser Probe[/bold cyan]")
 
     if not file.exists():
@@ -177,9 +177,9 @@ def probe_embed(
 
     try:
         import numpy as np
-        from sentence_transformers import SentenceTransformer
 
         from ragnarok.core.config import load_config
+        from ragnarok.indexing.dense import FastEmbedEmbedder
 
         config = load_config()
         model_name = config.dense_retrieval.model
@@ -188,11 +188,11 @@ def probe_embed(
         console.print(f"[dim]Model: {model_name} | Expected dim: {expected_dim}[/dim]")
 
         start = time.perf_counter()
-        model = SentenceTransformer(model_name)
+        embedder = FastEmbedEmbedder(model_name=model_name)
         load_ms = (time.perf_counter() - start) * 1000.0
 
         start = time.perf_counter()
-        vector = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
+        vector = embedder.embed_texts([text])[0]
         embed_ms = (time.perf_counter() - start) * 1000.0
 
         vec = np.array(vector)
@@ -513,7 +513,7 @@ def probe_context(
         console.print(
             "\n[bold]Context Management Pipeline:[/bold]\n"
             "  1. Retrieve child chunks via lexical/dense search\n"
-            "  2. Expand parent contexts from PostgreSQL\n"
+            "  2. Expand parent contexts from DuckDB\n"
             "  3. Deduplicate overlapping parent sections\n"
             "  4. Apply rank-based greedy token budgeting\n"
             f"\n  Budget Limit: {config.context_management.max_tokens} tokens"
@@ -550,79 +550,58 @@ def probe_guard(
     console.rule("[bold cyan]Input Guardrails Probe[/bold cyan]")
 
     try:
-        import re
-
         from ragnarok.core.config import load_config
+        from ragnarok.guardrails import GuardrailsService, check_tier1_fastpath
 
         config = load_config()
         console.print(f"[dim]Query: {query}[/dim]\n")
 
-        # Tier 1: Fast-Path Deterministic Checks
+        # Tier 1: Fast-Path Deterministic Checks (< 1ms)
         console.print("[bold]Tier 1: Deterministic Fast-Path Filters[/bold]")
+        start = time.perf_counter()
+        t1_decision = check_tier1_fastpath(query, max_tokens=config.guardrails.max_query_tokens)
+        t1_elapsed_ms = (time.perf_counter() - start) * 1000.0
 
-        # Length check
-        token_count = len(query.split())
-        length_ok = token_count <= config.guardrails.max_query_tokens
+        approx_tokens = len(query) // 4
+        length_ok = t1_decision.violation_type != "length"
         console.print(
-            f"  Length Check   : {token_count} tokens "
-            f"(max {config.guardrails.max_query_tokens}) "
+            f"  Length Check   : ~{approx_tokens} tokens (max {config.guardrails.max_query_tokens}) "
             f"{'[green]PASS[/green]' if length_ok else '[red]FAIL[/red]'}"
         )
-
-        # Character sanitization (control characters / ANSI)
-        has_suspicious = bool(re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", query))
+        ctrl_ok = t1_decision.violation_type != "control_char"
         console.print(
-            f"  Char Sanitize  : "
-            f"{'[red]Suspicious control characters detected[/red]' if has_suspicious else '[green]PASS[/green]'}"
+            f"  Char Sanitize  : {'[red]Suspicious control characters detected[/red]' if not ctrl_ok else '[green]PASS[/green]'}"
+        )
+        inj_ok = t1_decision.violation_type != "injection"
+        console.print(
+            f"  Injection Scan : {'[red]FAIL — Potential prompt injection detected[/red]' if not inj_ok else '[green]PASS[/green]'}"
         )
 
-        # Injection pattern detection
-        injection_patterns = [
-            r"(?i)ignore\s+(all\s+)?previous\s+instructions",
-            r"(?i)you\s+are\s+now\s+",
-            r"(?i)system\s*prompt",
-            r"(?i)\\n\s*\\n\s*(system|user|assistant)\s*:",
-            r"(?i)act\s+as\s+(a\s+)?",
-            r"(?i)reveal\s+(your\s+)?instructions",
-            r"(?i)dan\s+mode",
-            r"(?i)developer\s+mode",
-            r"(<\|im_start\|>|<\|im_end\|>|\[INST\]|\[/INST\])",
-        ]
-        injection_detected = False
-        for pattern in injection_patterns:
-            if re.search(pattern, query):
-                injection_detected = True
-                break
-        console.print(
-            f"  Injection Scan : "
-            f"{'[red]FAIL — Potential prompt injection detected[/red]' if injection_detected else '[green]PASS[/green]'}"
-        )
-
-        overall_tier1 = length_ok and not has_suspicious and not injection_detected
+        overall_tier1 = t1_decision.is_safe
         console.print(
             f"\n  [bold]Tier 1 Verdict[/bold]: "
-            f"{'[green]SAFE[/green]' if overall_tier1 else '[red]BLOCKED[/red]'}"
+            f"{'[green]SAFE[/green]' if overall_tier1 else '[red]BLOCKED[/red]'} "
+            f"[dim]({t1_elapsed_ms:.3f} ms)[/dim]"
         )
 
         # Standardized refusal output if blocked
         if not overall_tier1:
-            if not length_ok:
-                console.print(
-                    "\n[bold red]Refusal:[/bold red] Your query exceeds the maximum allowed length "
-                    f"({config.guardrails.max_query_tokens} tokens). Please submit a more concise question."
-                )
-            elif injection_detected or has_suspicious:
-                console.print(
-                    "\n[bold red]Refusal:[/bold red] Your query could not be processed due to safety policy restrictions."
-                )
+            console.print(f"\n[bold red]Refusal:[/bold red] {t1_decision.fallback_message}")
 
-        # Tier 2: Semantic Model Guard (if configured)
-        if config.guardrails.enabled and config.guardrails.model:
+        # Tier 2: Semantic Model Guard (via GuardrailsService)
+        guard_service = GuardrailsService.from_config(config=config)
+        if overall_tier1 and config.guardrails.enabled:
             console.print("\n[bold]Tier 2: Semantic Model Guard[/bold]")
             console.print(f"  Model          : {config.guardrails.model}")
+            decision = guard_service.validate_input(query)
             console.print(
-                "  [yellow]Note: Full Tier 2 semantic evaluation requires active LLM provider.[/yellow]"
+                f"  Topicality     : {'[green]PASS[/green]' if decision.is_topical else '[yellow]OFF-TOPIC[/yellow]'}"
             )
+            console.print(
+                f"  Safety Verdict : {'[green]SAFE[/green]' if decision.is_safe else '[red]BLOCKED[/red]'}"
+            )
+            if not decision.is_safe or (config.guardrails.strict_mode and not decision.is_topical):
+                console.print(f"\n[bold red]Refusal:[/bold red] {decision.fallback_message}")
 
         console.print("\n[green]✓[/green] Guardrail probe completed")
 
@@ -639,9 +618,9 @@ def probe_pii(
     console.rule("[bold cyan]Secret & PII Redaction Probe[/bold cyan]")
 
     try:
-        from ragnarok.generation.sanitizer import sanitize_generated_text
+        from ragnarok.guardrails import scan_and_redact_secrets
 
-        redacted = sanitize_generated_text(text)
+        redacted, detected_types = scan_and_redact_secrets(text)
 
         # Show results side by side
         console.print(Panel(text, title="[yellow]Original Input[/yellow]"))
@@ -650,7 +629,8 @@ def probe_pii(
         # Detect what was redacted
         changes_detected = text != redacted
         if changes_detected:
-            console.print("[bold yellow]⚠ Sensitive patterns detected and redacted[/bold yellow]")
+            types_str = f" ({', '.join(detected_types)})" if detected_types else ""
+            console.print(f"[bold yellow]⚠ Sensitive patterns detected and redacted{types_str}[/bold yellow]")
         else:
             console.print("[green]✓[/green] No sensitive patterns detected in input")
 

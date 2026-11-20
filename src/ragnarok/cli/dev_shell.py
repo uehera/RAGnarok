@@ -10,12 +10,18 @@ from __future__ import annotations
 
 import contextlib
 import shlex
+import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+if TYPE_CHECKING:
+    from ragnarok.context.contract import AssembledContextPayload
+    from ragnarok.retrieval.contract import ChildResultCandidate
 
 logger = structlog.get_logger(__name__)
 
@@ -28,6 +34,9 @@ class DevShellSession:
     def __init__(self, console: Console | None = None) -> None:
         self.console = console if console is not None else Console()
         self.command_count: int = 0
+        self.last_query: str | None = None
+        self.last_context_payload: AssembledContextPayload | None = None
+        self.last_candidates: list[ChildResultCandidate] = []
 
     def print_banner(self) -> None:
         """Renders the developer workspace welcome banner with command overview."""
@@ -38,18 +47,16 @@ class DevShellSession:
         grid.add_row(
             "Workspace", "[bold white]RAGnarok Developer Workspace (Dev Deck)[/bold white]"
         )
-        grid.add_row("Stage & Ingest", "add <file> [dest] (a) | ingest <path> (in) | reindex (rx)")
+        grid.add_row("Core Operations", "ingest <path> (in) | reindex (rx)")
         grid.add_row("Diagnostics", "doctor (doc) | stats (st)")
-        grid.add_row(
-            "Component Probes",
-            "parse, chunk, embed, bm25, route, rerank, context, guard, pii",
-        )
-        grid.add_row(
-            "Test & Benchmarks", "auto (pytest suite) | eval (DeepEval 20-case golden dataset)"
-        )
+        grid.add_row("Inspection", "/source <N> (inspect source text)")
         grid.add_row(
             "Retrieval Query",
             'query "<text>" (q) [--waterfall, --provenance, --strategy, --budget]',
+        )
+        grid.add_row(
+            "Component Probes",
+            "parse, chunk, embed, bm25, route, rerank, context, guard, pii, auto, eval",
         )
         grid.add_row("Workspace Controls", "help (/help) | clear (/clear) | exit (quit)")
         grid.add_row(
@@ -60,7 +67,7 @@ class DevShellSession:
         panel = Panel(
             grid,
             title="[bold yellow]RAGnarok Local Developer Workspace[/bold yellow]",
-            subtitle="[dim]Execute any dev, probe, or test command directly without typing 'rag'[/dim]",
+            subtitle="[dim]Execute dev, query, inspection, or probe commands directly[/dim]",
             border_style="yellow",
             padding=(1, 2),
         )
@@ -79,17 +86,12 @@ class DevShellSession:
         table.add_column("Description", justify="left")
 
         table.add_row(
-            "add <file> [dest] (a)",
-            "Staging",
-            "Copy external file into docs/ or custom dir for ingestion",
-        )
-        table.add_row(
             "ingest <path> (in)",
-            "Ingestion",
+            "Operations",
             "Ingest & chunk documents into vault with auto-indexing",
         )
         table.add_row(
-            "reindex (rx)", "Indexing", "Rebuild BM25 and TurboVec indexes from PostgreSQL"
+            "reindex (rx)", "Operations", "Rebuild BM25 and TurboVec indexes from DuckDB"
         )
         table.add_row(
             "doctor (doc)", "Diagnostics", "Run 6-point environment, DB, and accelerator checks"
@@ -98,9 +100,19 @@ class DevShellSession:
             "stats (st)", "Diagnostics", "Display database record counts and index disk sizes"
         )
         table.add_row(
-            "query <text> (q)", "Retrieval", "Test full retrieval & generation (-w, -p, -s, -b)"
+            "/source <N>, /s <N>", "Inspection", "Inspect full text and metadata for source block [N]"
         )
-        table.add_row("parse <file>", "Probe", "Inspect Docling Markdown extraction in memory")
+        table.add_row(
+            'query "<text>" (q)',
+            "Retrieval",
+            "Test full retrieval & generation [--waterfall, --provenance, --strategy, --budget]",
+        )
+        table.add_row(
+            "add <file> [dest] (a)",
+            "Staging",
+            "Copy external file into docs/ or custom dir for ingestion",
+        )
+        table.add_row("parse <file>", "Probe", "Inspect layout parser Markdown extraction in memory")
         table.add_row(
             "chunk <file>", "Probe", "Inspect two-stage parent/child boundaries & overlap"
         )
@@ -126,9 +138,72 @@ class DevShellSession:
         table.add_row("auto", "Test", "Run automated pytest test suite (unit + integration)")
         table.add_row("eval", "Benchmark", "Run DeepEval 20-case Golden Dataset benchmark suite")
         table.add_row("clear, /clear", "Control", "Clear terminal screen")
+        table.add_row("help, /help", "Control", "Display developer command reference")
         table.add_row("exit, quit", "Control", "Exit developer workspace")
 
         self.console.print(table)
+
+    def _display_single_source(self, index: int) -> None:
+        """Displays the full untruncated text of a specific parent context block."""
+        if self.last_context_payload and hasattr(self.last_context_payload, "context_blocks"):
+            for b in self.last_context_payload.context_blocks:
+                if b.source_index == index:
+                    from ragnarok.context.formatter import format_heading_path
+
+                    section_str = format_heading_path(b.heading_path)
+                    panel = Panel(
+                        b.content,
+                        title=f"[bold cyan]Source [{b.source_index}]: {b.filename}[/bold cyan]",
+                        subtitle=f"[dim]Section: {section_str} | Tokens: {b.token_count} | Parent UUID: {b.parent_chunk_id}[/dim]",
+                        border_style="cyan",
+                        padding=(1, 2),
+                    )
+                    self.console.print(panel)
+                    return
+            max_idx = len(self.last_context_payload.context_blocks)
+            self.console.print(
+                f"[yellow]Source [{index}] not found in last query context. Available sources: 1 to {max_idx}.[/yellow]"
+            )
+            return
+
+        # Fallback: inspect parent chunk directly from DuckDB
+        try:
+            from ragnarok.core.config import load_config
+            from ragnarok.storage.database import DatabasePool
+
+            config = load_config()
+            with DatabasePool(db_path=config.database.db_path) as pool, pool.connection() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT p.parent_index, d.filename, p.heading_path, p.content, p.parent_chunk_id
+                    FROM parent_chunks p
+                    JOIN documents d ON p.document_id = d.document_id
+                    WHERE p.parent_index = ?
+                    LIMIT 1;
+                    """,
+                    (index,),
+                )
+                row = cur.fetchone()
+                if row:
+                    p_idx, fname, h_path, content, p_id = row
+                    from ragnarok.context.formatter import format_heading_path
+
+                    section_str = format_heading_path(h_path or [])
+                    panel = Panel(
+                        content,
+                        title=f"[bold cyan]Parent Chunk [{p_idx}]: {fname}[/bold cyan]",
+                        subtitle=f"[dim]Section: {section_str} | UUID: {p_id}[/dim]",
+                        border_style="cyan",
+                        padding=(1, 2),
+                    )
+                    self.console.print(panel)
+                    return
+                else:
+                    self.console.print(
+                        f"[yellow]No parent chunk found with index [{index}]. Run a query first or ingest documents.[/yellow]"
+                    )
+        except Exception as e:
+            self.console.print(f"[yellow]Unable to inspect source [{index}]: {e}[/yellow]")
 
     def dispatch(self, raw_line: str) -> bool:
         """
@@ -158,6 +233,8 @@ class DevShellSession:
             self.console.print("[dim]Exiting developer workspace...[/dim]")
             return False
 
+        self.command_count += 1
+
         # Help
         if cmd in ("help", "/help", "?"):
             self.print_help()
@@ -169,13 +246,14 @@ class DevShellSession:
             self.print_banner()
             return True
 
-        # Chat shell warning
+        # Chat shell transition
         if cmd in ("chat", "c", "/chat"):
-            self.console.print(
-                "[bold cyan]Notice:[/bold cyan] [dim]'chat' runs in the dedicated chat shell.[/dim]\n"
-                "[yellow]To open the conversational chat shell with real-time streaming, exit and run:[/yellow] "
-                "[bold green]rag -c[/bold green]\n"
-            )
+            self.console.print("[dim]Transitioning to interactive chat shell...[/dim]")
+            if sys.stdin.isatty():
+                from ragnarok.cli.repl import run_repl
+
+                run_repl(console=self.console)
+                self.print_banner()
             return True
 
         # Strip optional "rag" prefix so `rag add ...` or `rag ingest ...` works seamlessly
@@ -255,13 +333,24 @@ class DevShellSession:
 
                 stats_command()
 
+            # Source Inspection
+            elif cmd in ("/source", "source", "/s", "s"):
+                if not args:
+                    self.console.print("[yellow]Usage: /source <N> (inspect source block text)[/yellow]")
+                    return True
+                try:
+                    idx = int(args[0])
+                    self._display_single_source(idx)
+                except ValueError:
+                    self.console.print("[yellow]Source index must be an integer (e.g. /source 1)[/yellow]")
+
             # Query
             elif cmd in ("query", "q"):
                 from ragnarok.cli.main import query_command
 
                 if not args:
                     self.console.print(
-                        "[bold red]Usage: query <text> [--waterfall] [--provenance] [--strategy <name>][/bold red]"
+                        "[bold red]Usage: query <text> [--waterfall] [--provenance] [--strategy <name>] [--budget <n>][/bold red]"
                     )
                     return True
 
@@ -284,14 +373,18 @@ class DevShellSession:
                         if idx + 1 < len(args):
                             budget = int(args[idx + 1])
 
-                query_command(
-                    text=query_text,
-                    strategy=strategy,
-                    no_rerank=no_rerank,
-                    budget=budget,
-                    show_waterfall=show_w,
-                    show_provenance=show_p,
-                )
+                self.last_query = query_text
+                with contextlib.suppress(SystemExit):
+                    result = query_command(
+                        text=query_text,
+                        strategy=strategy,
+                        no_rerank=no_rerank,
+                        budget=budget,
+                        show_waterfall=show_w,
+                        show_provenance=show_p,
+                    )
+                    if result:
+                        self.last_context_payload, self.last_candidates = result
 
             # Probes: Parse
             elif cmd == "parse":

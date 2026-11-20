@@ -5,7 +5,7 @@ Built with Typer and Rich. Provides concise operational commands with shorthands
   rag query "<text>"  (q)   — Full retrieval and streaming synthesis
   rag chat            (c)   — Interactive multi-turn developer shell
   rag ingest <path>   (in)  — Document ingestion with progress bars
-  rag reindex         (rx)  — Rebuild BM25 and TurboVec indexes from PostgreSQL
+  rag reindex         (rx)  — Rebuild BM25 and TurboVec indexes from DuckDB
   rag stats           (st)  — Multi-panel system status dashboard
   rag doctor          (doc) — Environment, database, and hardware diagnostics
   rag test <target>   (t)   — Modular component probes and test suites
@@ -18,6 +18,16 @@ import re
 import time
 from pathlib import Path
 from typing import Any
+
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+os.environ.setdefault("LITELLM_LOG", "CRITICAL")
+try:
+    import litellm
+
+    litellm.suppress_debug_info = True
+    litellm.set_verbose = False
+except Exception:
+    pass
 
 import structlog
 import typer
@@ -39,6 +49,7 @@ from ragnarok.core.diagnostics import (
     check_database,
     check_filesystem_paths,
     check_python_version,
+    print_runtime_structure,
 )
 
 logger = structlog.get_logger(__name__)
@@ -123,6 +134,12 @@ def query_command(
     show_provenance: bool = typer.Option(
         False, "--provenance", "-p", help="Show retrieval provenance table."
     ),
+    enable_self_rag: bool = typer.Option(
+        False, "--self-rag", help="Enable Self-RAG pre-retrieval decision gate."
+    ),
+    enable_rewrite: bool = typer.Option(
+        False, "--rewrite", help="Enable pre-retrieval query rewriting."
+    ),
 ) -> None:
     """
     Execute full retrieval and live streaming synthesis for a query.
@@ -141,6 +158,19 @@ def query_command(
         config = load_config()
         if budget > 0:
             config.context_management.max_tokens = budget
+        if enable_self_rag:
+            config.self_rag.enabled = True
+        if enable_rewrite:
+            config.query_rewriting.enabled = True
+
+        # 0. Input Guardrails Check
+        from ragnarok.guardrails import GuardrailsService
+
+        guard_service = GuardrailsService.from_config(config=config)
+        guard_decision = guard_service.validate_input(text)
+        if not guard_decision.is_safe or (config.guardrails.strict_mode and not guard_decision.is_topical):
+            console.print(f"\n[bold red]Refusal:[/bold red] {guard_decision.fallback_message}")
+            return
 
         start_time = time.perf_counter()
 
@@ -165,6 +195,16 @@ def query_command(
 
         # Render formatted output
         console.print(service.format_terminal_output(response))
+
+        # Post-Hoc Output Guard Warnings
+        if response.secrets_redacted:
+            console.print(
+                f"[bold yellow]🛡️ Output Guard:[/bold yellow] [dim]Redacted sensitive tokens: {', '.join(response.secrets_redacted)}[/dim]"
+            )
+        if not response.is_grounded:
+            console.print(
+                "[bold red]⚠️ Grounding Warning:[/bold red] [red]The generated answer contains assertions not grounded in the retrieved documentation.[/red]"
+            )
 
         # Optional provenance display
         if show_provenance:
@@ -198,6 +238,8 @@ def query_command(
                 console=console,
             )
 
+        return context_payload, candidates
+
     except KeyboardInterrupt:
         console.print("\n[dim]Query interrupted.[/dim]")
     except Exception as e:
@@ -215,9 +257,20 @@ def query_alias(
     budget: int = typer.Option(0, "--budget", "-b"),
     show_waterfall: bool = typer.Option(False, "--waterfall", "-w"),
     show_provenance: bool = typer.Option(False, "--provenance", "-p"),
+    enable_self_rag: bool = typer.Option(False, "--self-rag"),
+    enable_rewrite: bool = typer.Option(False, "--rewrite"),
 ) -> None:
     """Shorthand for `rag query`."""
-    query_command(text, strategy, no_rerank, budget, show_waterfall, show_provenance)
+    query_command(
+        text,
+        strategy,
+        no_rerank,
+        budget,
+        show_waterfall,
+        show_provenance,
+        enable_self_rag,
+        enable_rewrite,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +429,7 @@ def ingest_command(
         from ragnarok.core.config import load_config
 
         config = load_config()
-        if batch_size > 0:
+        if isinstance(batch_size, int) and batch_size > 0:
             config.ingestion.batch_size = batch_size
 
         # Collect files to ingest (filtering out internal UUID vault files and metadata artifacts)
@@ -500,12 +553,12 @@ def ingest_alias(
 @app.command(name="reindex", rich_help_panel="Pipeline Operations")
 def reindex_command() -> None:
     """
-    Rebuild BM25 and TurboVec indexes directly from PostgreSQL chunks.
+    Rebuild BM25 and TurboVec indexes directly from DuckDB chunks.
 
     Alias: `rag rx`
     """
     console.rule("[bold cyan]RAGnarok Index Rebuild[/bold cyan]")
-    console.print("[dim]Rebuilding search indexes from PostgreSQL child chunks...[/dim]")
+    console.print("[dim]Rebuilding search indexes from DuckDB child chunks...[/dim]")
 
     try:
         from ragnarok.core.config import load_config
@@ -567,18 +620,12 @@ def stats_command() -> None:
         }
 
         try:
-            import psycopg
-            from psycopg import sql
+            from ragnarok.storage.database import DatabasePool
 
-            db_url = os.getenv(
-                "DATABASE_URL",
-                config.secrets.database_url,
-            )
-            with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+            pool = DatabasePool(db_path=config.secrets.db_path)
+            with pool.connection() as conn, conn.cursor() as cur:
                 for table_name in ["documents", "parent_chunks", "chunks"]:
-                    cur.execute(
-                        sql.SQL("SELECT COUNT(*) FROM {};").format(sql.Identifier(table_name))
-                    )
+                    cur.execute(f"SELECT COUNT(*) FROM {table_name};")
                     row = cur.fetchone()
                     if row:
                         db_stats[table_name] = row[0]
@@ -614,18 +661,18 @@ def stats_command() -> None:
             "dense_dim": config.dense_retrieval.vector_dimension,
             "dense_size_mb": dir_size_mb(dense_path),
             "db_size_mb": 0.0,
+            "quarantined_files": (
+                len(list(Path(config.guardrails.quarantine_directory).glob("*.json")))
+                if Path(config.guardrails.quarantine_directory).exists()
+                else 0
+            ),
         }
 
-        # Attempt to get DB size
+        # Attempt to get DuckDB file size
         try:
-            import psycopg
-
-            db_url = os.getenv("DATABASE_URL", config.secrets.database_url)
-            with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-                cur.execute("SELECT pg_database_size(current_database());")
-                row = cur.fetchone()
-                if row:
-                    index_stats["db_size_mb"] = row[0] / (1024 * 1024)
+            db_file = Path(config.secrets.db_path)
+            if db_file.exists():
+                index_stats["db_size_mb"] = db_file.stat().st_size / (1024 * 1024)
         except Exception:
             pass
 
@@ -670,6 +717,7 @@ def doctor_command() -> None:
 
     console.rule()
     if all(results):
+        print_runtime_structure()
         console.print("[bold green]Setup status: READY TO DEVELOP[/bold green]")
         raise typer.Exit(code=0)
     else:
