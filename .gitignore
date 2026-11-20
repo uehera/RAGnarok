@@ -6,26 +6,44 @@ __pycache__/
 dist/
 build/
 wheels/
+*.whl
+*.so
 
 # Virtual environment
 .venv/
 env/
 venv/
+ENV/
+env.bak/
+venv.bak/
 
 # Environment secrets & credentials
 .env
 *.env
 !.env.example
+.env.local
+.env.*.local
 
-# Runtime data & search indexes (Never commit)
-/data/staging/*
-/data/raw/*
-/data/parsed/*
-/data/indexes/bm25/*
-/data/indexes/dense/*
-!data/**/.gitkeep
-/docs/*
-!docs/.gitkeep
+# Database files & locks (DuckDB)
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
+
+# Runtime data & search indexes (Never commit - generated via scripts/verify_setup.py)
+data/
+/data/
+data/**
+
+# Model weights & caches (NEVER commit - local model storage)
+models/
+/models/
+models/**
+*.onnx
+*.safetensors
+*.bin
+*.pt
+*.pth
+fastembed_cache/
 
 # Explicitly ensure benchmark test data is NOT ignored
 !tests/data/
@@ -36,7 +54,10 @@ venv/
 .ruff_cache/
 .deepeval/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+coverage.xml
 
 # Editor & OS artifacts
 .DS_Store
@@ -44,7 +65,11 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
-# Developer
+# Developer & agent logs/workspace
 .agents/
 dev/
+*.log
+logs/

@@ -2,7 +2,8 @@
 RAGnarok Setup Diagnostic Script.
 
 Verifies Python version, package imports, configuration validity,
-filesystem directory permissions, PostgreSQL connectivity, and compute accelerators.
+provisions runtime filesystem directories (data/ and models/),
+initializes DuckDB storage connectivity, and checks compute accelerators.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 
 
 def check_python_version() -> bool:
@@ -25,11 +28,12 @@ def check_python_version() -> bool:
 def check_critical_imports() -> bool:
     print("Checking critical dependencies...", end=" ")
     packages = [
-        "docling",
-        "psycopg",
+        "pymupdf4llm",
+        "duckdb",
         "bm25s",
         "turbovec",
-        "sentence_transformers",
+        "flashrank",
+        "fastembed",
         "litellm",
         "pydantic",
         "pydantic_settings",
@@ -59,7 +63,7 @@ def check_configuration() -> bool:
 
         config = load_config()
         print(
-            f"[OK] Configuration loaded cleanly (App: {config.general.app_name}, DB URL: {config.secrets.database_url[:20]}...)"
+            f"[OK] Configuration loaded cleanly (App: {config.general.app_name}, DB Path: {config.database.db_path})"
         )
         return True
     except Exception as e:
@@ -68,13 +72,16 @@ def check_configuration() -> bool:
 
 
 def check_filesystem_paths() -> bool:
-    print("Checking runtime filesystem directories...", end=" ")
+    print("Checking and provisioning runtime filesystem directories...", end=" ")
     required_paths = [
-        Path("data/staging"),
-        Path("data/raw"),
-        Path("data/parsed"),
+        Path("data/db"),
         Path("data/indexes/bm25"),
         Path("data/indexes/dense"),
+        Path("data/parsed"),
+        Path("data/quarantine"),
+        Path("data/raw"),
+        Path("data/staging"),
+        Path("models"),
     ]
     for p in required_paths:
         p.mkdir(parents=True, exist_ok=True)
@@ -86,25 +93,38 @@ def check_filesystem_paths() -> bool:
             print(f"[FAIL] Cannot write to {p}: {e}")
             return False
 
-    print(f"[OK] {len(required_paths)} directories verified and writable")
+    print(f"[OK] {len(required_paths)} runtime directories verified and provisioned")
     return True
 
 
 def check_database() -> bool:
-    print("Checking PostgreSQL connectivity...", end=" ")
+    print("Checking DuckDB storage connectivity & schema...", end=" ")
     try:
-        import psycopg
+        from pathlib import Path
 
-        db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ragnarok")
-        with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        from ragnarok.core.config import load_config
+        from ragnarok.storage.database import DatabasePool
+
+        config = load_config()
+        db_path_str = config.secrets.db_path
+        if db_path_str.startswith("postgresql://") or db_path_str.startswith("postgres://"):
+            db_path_str = "data/db/ragnarok.duckdb"
+        db_file = Path(db_path_str)
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+
+        pool = DatabasePool(db_path=db_path_str)
+        schema_path = Path("scripts/init_schema.sql")
+        if schema_path.exists():
+            pool.init_schema(schema_path)
+
+        with pool.connection() as conn, conn.cursor() as cur:
             cur.execute("SELECT 1;")
             res = cur.fetchone()
             if res and res[0] == 1:
                 cur.execute(
                     """
                     SELECT table_name FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                    AND table_name IN ('documents', 'parent_chunks', 'chunks', 'processing_jobs');
+                    WHERE table_name IN ('documents', 'parent_chunks', 'chunks', 'processing_jobs');
                     """
                 )
                 tables = [row[0] for row in cur.fetchall()]
@@ -118,6 +138,22 @@ def check_database() -> bool:
         print(f"[FAIL] Could not connect to database: {e}")
         return False
     return False
+
+
+def print_runtime_structure() -> None:
+    db_file = Path("data/db/ragnarok.duckdb")
+    db_label = "📄 ragnarok.duckdb" if db_file.exists() else "❌ ragnarok.duckdb (not created)"
+    print("\nGenerated Runtime Repository Structure:")
+    print("data/")
+    print("├── 📁 db/")
+    print(f"│   └── {db_label}")
+    print("├── 📁 indexes/")
+    print("│   ├── 📁 bm25/")
+    print("│   └── 📁 dense/")
+    print("├── 📁 parsed/")
+    print("├── 📁 quarantine/")
+    print("├── 📁 raw/")
+    print("└── 📁 staging/")
 
 
 def check_accelerator() -> None:
@@ -150,11 +186,13 @@ def main() -> int:
     ]
     check_accelerator()
 
-    print("=" * 60)
     if all(results):
+        print_runtime_structure()
+        print("=" * 60)
         print("Setup status: READY TO DEVELOP")
         return 0
     else:
+        print("=" * 60)
         print("Setup status: INCOMPLETE — Resolve failures above")
         return 1
 
