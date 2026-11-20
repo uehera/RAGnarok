@@ -8,11 +8,23 @@ Enforces zero hardcoded models, providers, or credentials.
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, SecretStr
+# Enforce local offline cost map and suppress LiteLLM debug output globally
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+os.environ.setdefault("LITELLM_LOG", "CRITICAL")
+try:
+    import litellm
+
+    litellm.suppress_debug_info = True
+    litellm.set_verbose = False
+except Exception:
+    pass
+
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,10 +40,27 @@ class EnvSecrets(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/ragnarok",
-        description="PostgreSQL connection string with pgcrypto extension enabled",
+    db_path: str = Field(
+        default="data/db/ragnarok.duckdb",
+        description="Path to embedded DuckDB database file",
+        validation_alias=AliasChoices(
+            "db_path", "RAGNAROK_DB_PATH", "database_url", "DATABASE_URL"
+        ),
     )
+
+    @field_validator("db_path", mode="after")
+    @classmethod
+    def sanitize_db_path(cls, v: str) -> str:
+        """Sanitizes PostgreSQL or remote database URIs to default local DuckDB storage path."""
+        if v.startswith("postgresql://") or v.startswith("postgres://"):
+            return "data/db/ragnarok.duckdb"
+        return v
+
+    @property
+    def database_url(self) -> str:
+        """Backward-compatibility property returning the configured DuckDB path."""
+        return self.db_path
+
     openai_api_key: SecretStr | None = Field(default=None, description="OpenAI API key")
     anthropic_api_key: SecretStr | None = Field(default=None, description="Anthropic API key")
     groq_api_key: SecretStr | None = Field(default=None, description="Groq API key")
@@ -51,9 +80,11 @@ class GeneralConfig(BaseModel):
 
 
 class DatabaseConfig(BaseModel):
+    db_path: str = Field(default="data/db/ragnarok.duckdb")
+    read_only: bool = Field(default=False)
+    timeout_seconds: float = Field(default=30.0, gt=0.0)
     min_connections: int = Field(default=1, ge=1)
     max_connections: int = Field(default=10, ge=1)
-    timeout_seconds: float = Field(default=30.0, gt=0.0)
 
 
 class IngestionDeduplicationConfig(BaseModel):
@@ -62,7 +93,7 @@ class IngestionDeduplicationConfig(BaseModel):
 
 
 class IngestionParserConfig(BaseModel):
-    engine: str = Field(default="docling")
+    engine: str = Field(default="pymupdf4llm")
     export_format: str = Field(default="markdown")
 
 
@@ -92,7 +123,7 @@ class ChunkingConfig(BaseModel):
 
 
 class DenseRetrievalConfig(BaseModel):
-    provider: str = Field(default="sentence-transformers")
+    provider: str = Field(default="fastembed")
     model: str = Field(default="BAAI/bge-small-en-v1.5")
     vector_dimension: int = Field(default=384, ge=1)
     batch_size: int = Field(default=100, ge=1)
@@ -109,8 +140,8 @@ class LexicalRetrievalConfig(BaseModel):
 
 class RerankerConfig(BaseModel):
     enabled: bool = Field(default=True)
-    model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
-    top_n: int = Field(default=50, ge=1)
+    model: str = Field(default="ms-marco-MiniLM-L-12-v2")
+    top_n: int = Field(default=15, ge=1)
     top_k: int = Field(default=10, ge=1)
 
 
@@ -124,8 +155,8 @@ class ContextManagementConfig(BaseModel):
 
 
 class QueryRewritingConfig(BaseModel):
-    enabled: bool = Field(default=True)
-    model: str = Field(default="groq/llama-3.1-8b-instant")
+    enabled: bool = Field(default=False)
+    model: str = Field(default="groq/qwen/qwen3.8-27b")
 
 
 class AdaptiveRetrievalConfig(BaseModel):
@@ -134,18 +165,30 @@ class AdaptiveRetrievalConfig(BaseModel):
 
 
 class SelfRagConfig(BaseModel):
-    enabled: bool = Field(default=True)
+    enabled: bool = Field(default=False)
     decision_method: str = Field(default="llm")
-    model: str = Field(default="groq/llama-3.1-8b-instant")
+    model: str = Field(default="groq/qwen/qwen3.8-27b")
 
 
 class GuardrailsConfig(BaseModel):
     enabled: bool = Field(default=True)
     strict_mode: bool = Field(default=False)
+    classifier_backend: Literal["litellm", "deberta"] = Field(default="litellm")
+    prompt_injection_model: str = Field(default="ProtectAI/deberta-v3-base-prompt-injection-v2")
+    nli_grounding_model: str = Field(default="cross-encoder/nli-deberta-v3-base")
+    injection_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    contradiction_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     max_query_tokens: int = Field(default=1024, ge=1)
     enable_pii_filter: bool = Field(default=True)
     enable_injection_detection: bool = Field(default=True)
-    model: str = Field(default="groq/llama-3.1-8b-instant")
+    enable_grounding_check: bool = Field(default=False)
+    enable_document_guard: bool = Field(default=True)
+    document_injection_action: Literal["sanitize", "quarantine", "reject"] = Field(
+        default="sanitize"
+    )
+    quarantine_directory: Path = Field(default_factory=lambda: Path("data/quarantine"))
+    model: str = Field(default="groq/qwen/qwen3.8-27b")
+    timeout_seconds: float = Field(default=2.0, ge=0.1)
 
 
 class EvalsThresholdsConfig(BaseModel):
@@ -166,7 +209,9 @@ class EvalsConfig(BaseModel):
 
 class GenerationFallbacksConfig(BaseModel):
     enabled: bool = Field(default=True)
-    models: list[str] = Field(default_factory=lambda: ["ollama/llama3.2:3b", "openai/gpt-4o-mini"])
+    models: list[str] = Field(
+        default_factory=lambda: ["groq/openai/gpt-oss-120b", "groq/openai/gpt-oss-20b"]
+    )
 
 
 class GenerationCitationsConfig(BaseModel):
@@ -176,7 +221,7 @@ class GenerationCitationsConfig(BaseModel):
 
 
 class GenerationConfig(BaseModel):
-    model: str = Field(default="groq/llama-3.3-70b-versatile")
+    model: str = Field(default="groq/qwen/qwen3.8-27b")
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1500, ge=1)
     stream: bool = Field(default=True)

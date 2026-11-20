@@ -1,4 +1,4 @@
-"""Storage and infrastructure layer: PostgreSQL adapters, repository, and index handles."""
+"""Storage and infrastructure layer: DuckDB storage adapters, repository, and index handles."""
 
 from ragnarok.storage.database import DatabasePool
 from ragnarok.storage.repository import RelationalRepository

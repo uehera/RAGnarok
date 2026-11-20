@@ -37,32 +37,46 @@ class CrossEncoderProtocol(Protocol):
         ...
 
 
-class SentenceTransformerCrossEncoder:
+class FlashRankCrossEncoder:
     """
-    Default Cross-Encoder model wrapper using sentence-transformers.
-    Lazy-loads model to prevent startup latency.
+    Default Cross-Encoder model wrapper using FlashRank (ONNX).
+    Lazy-loads model to prevent startup latency and avoid PyTorch overhead.
     """
 
     def __init__(
         self,
-        model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        model_name: str = "ms-marco-MiniLM-L-12-v2",
+        cache_dir: str = "models",
     ) -> None:
+        if model_name.startswith("cross-encoder/"):
+            model_name = "ms-marco-MiniLM-L-12-v2"
         self.model_name = model_name
+        self.cache_dir = cache_dir
         self._model: Any = None
 
     def _get_model(self) -> Any:
         if self._model is None:
-            from sentence_transformers import CrossEncoder
+            from flashrank import Ranker
 
-            self._model = CrossEncoder(self.model_name)
+            self._model = Ranker(model_name=self.model_name, cache_dir=self.cache_dir)
         return self._model
 
     def predict(self, sentences: list[list[str]] | list[tuple[str, str]]) -> list[float]:
         if not sentences:
             return []
+        query = sentences[0][0]
+        passages = [{"id": idx, "text": pair[1]} for idx, pair in enumerate(sentences)]
+        from flashrank import RerankRequest
+
+        req = RerankRequest(query=query, passages=passages)
         model = self._get_model()
-        scores = model.predict(sentences)
-        return [float(s) for s in scores]
+        results = model.rerank(req)
+        score_by_id = {int(item["id"]): float(item["score"]) for item in results}
+        return [score_by_id.get(idx, 0.0) for idx in range(len(sentences))]
+
+
+# Backward-compatibility alias
+SentenceTransformerCrossEncoder = FlashRankCrossEncoder
 
 
 def rerank_candidates(

@@ -1,10 +1,8 @@
 -- RAGnarok Relational Schema DDL
--- Authoritative Schema for PostgreSQL 16 Metadata Store
-
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Authoritative Schema for Embedded DuckDB Metadata Store
 
 CREATE TABLE IF NOT EXISTS documents (
-    document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID PRIMARY KEY,
     filename TEXT NOT NULL,
     raw_file_path TEXT NOT NULL,
     parsed_file_path TEXT NOT NULL,
@@ -13,14 +11,12 @@ CREATE TABLE IF NOT EXISTS documents (
     checksum TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'stored'
         CHECK (status IN ('stored', 'parsing', 'parsed', 'failed')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS parent_chunks (
-    parent_chunk_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id UUID NOT NULL
-        REFERENCES documents(document_id)
-        ON DELETE CASCADE,
+    parent_chunk_id UUID PRIMARY KEY,
+    document_id UUID NOT NULL,
     content TEXT NOT NULL,
     parent_index INTEGER NOT NULL,
     heading_path TEXT[],
@@ -28,13 +24,9 @@ CREATE TABLE IF NOT EXISTS parent_chunks (
 );
 
 CREATE TABLE IF NOT EXISTS chunks (
-    chunk_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id UUID NOT NULL
-        REFERENCES documents(document_id)
-        ON DELETE CASCADE,
-    parent_chunk_id UUID NOT NULL
-        REFERENCES parent_chunks(parent_chunk_id)
-        ON DELETE CASCADE,
+    chunk_id UUID PRIMARY KEY,
+    document_id UUID NOT NULL,
+    parent_chunk_id UUID NOT NULL,
     content TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
     heading_path TEXT[],
@@ -42,15 +34,13 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 CREATE TABLE IF NOT EXISTS processing_jobs (
-    job_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id UUID NOT NULL
-        REFERENCES documents(document_id)
-        ON DELETE CASCADE,
+    job_id UUID PRIMARY KEY,
+    document_id UUID NOT NULL,
     stage TEXT NOT NULL DEFAULT 'queued'
         CHECK (stage IN ('queued', 'parsing', 'chunking', 'indexing', 'completed', 'failed')),
     error_message TEXT,
-    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
 );
 
 -- Performance Indexes

@@ -1,9 +1,9 @@
 """
 Dense Search Execution Subsystem.
 
-Generates query embeddings via sentence-transformers, searches the TurboVec IdMapIndex
+Generates query embeddings via FastEmbed, searches the TurboVec IdMapIndex
 using cosine similarity, applies optional metadata allowlist filters, resolves 64-bit
-numeric IDs back to PostgreSQL child chunk UUIDs, and packages results into the Child
+numeric IDs back to DuckDB child chunk UUIDs, and packages results into the Child
 Result Contract schema.
 """
 

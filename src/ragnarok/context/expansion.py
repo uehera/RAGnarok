@@ -1,7 +1,7 @@
 """
 Parent Context Expansion Subsystem.
 
-Resolves full parent context sections from PostgreSQL for surviving top-K child matches,
+Resolves full parent context sections from DuckDB for surviving top-K child matches,
 deduplicates co-parent child hits, preserves scoring provenance, and orders parents strictly
 by best matching child rank without synthetic score calculations.
 """
@@ -42,7 +42,7 @@ def expand_parent_contexts(
     Steps:
     1. Extract and deduplicate parent_chunk_id foreign keys from candidates.
     2. Group child references under each parent and determine best_child_rank.
-    3. Batch-fetch parent records from PostgreSQL.
+    3. Batch-fetch parent records from DuckDB.
     4. Batch-fetch source document metadata (filenames).
     5. Order unique parents strictly by best_child_rank ascending (highest relevance first).
     """
@@ -67,10 +67,10 @@ def expand_parent_contexts(
 
     unique_parent_ids = list(parent_to_children.keys())
 
-    # Step 3: Batch query PostgreSQL parent_chunks
+    # Step 3: Batch query DuckDB parent_chunks
     parent_records = parent_lookup.get_parent_chunks_by_ids(unique_parent_ids)
 
-    # Step 4: Batch query PostgreSQL documents for filenames
+    # Step 4: Batch query DuckDB documents for filenames
     doc_ids = {record.document_id for record in parent_records.values()}
     doc_records = parent_lookup.get_documents_by_ids(list(doc_ids)) if doc_ids else {}
 

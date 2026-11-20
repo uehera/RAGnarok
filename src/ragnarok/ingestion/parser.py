@@ -1,7 +1,8 @@
 """
 Document Layout Parsing Subsystem.
 
-Wraps Docling to extract reading order, structural tables, and heading hierarchies (#, ##, ###).
+Extracts reading order, structural tables, and heading hierarchies (#, ##, ###)
+using PyMuPDF (pymupdf4llm) for PDFs and direct UTF-8 file reads for Markdown and plain text.
 Persists normalized Markdown artifacts to data/parsed/<doc_id>.md, updates relational status,
 and captures parser exceptions in processing_jobs.error_message.
 """
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 import traceback
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 from uuid import UUID
 
 import structlog
@@ -29,33 +30,31 @@ class ParserEngineProtocol(Protocol):
         ...
 
 
-class DoclingParserEngine:
+class PyMuPDFParserEngine:
     """
-    Default parsing engine using Docling.
-    Extracts layout reading order, markdown heading hierarchies, and structural tables.
+    Lightweight document parsing engine using PyMuPDF (pymupdf4llm) and direct file reads.
+    Extracts layout reading order, markdown heading hierarchies, and structural tables from PDFs,
+    and directly reads UTF-8 content from Markdown and plain text files.
     """
-
-    def __init__(self) -> None:
-        self._converter: Any = None
-
-    def _get_converter(self) -> Any:
-        if self._converter is None:
-            from docling.document_converter import DocumentConverter
-
-            self._converter = DocumentConverter()
-        return self._converter
 
     def parse_to_markdown(self, file_path: Path) -> str:
-        """Converts file into normalized Markdown using Docling."""
+        """Converts file into normalized Markdown."""
         suffix = file_path.suffix.lower()
-        # Fast path for raw Markdown and Plaintext files
+        # Direct pass-through for Markdown and Plaintext files with zero parser overhead
         if suffix in (".md", ".txt"):
             return file_path.read_text(encoding="utf-8")
 
-        converter = self._get_converter()
-        conv_result = converter.convert(str(file_path))
-        markdown_text = conv_result.document.export_to_markdown()
-        return markdown_text
+        if suffix == ".pdf":
+            import pymupdf4llm
+
+            markdown_text = pymupdf4llm.to_markdown(str(file_path))
+            return markdown_text
+
+        raise ValueError(f"Unsupported file format for parsing: {suffix}")
+
+
+# Backward-compatibility alias
+DoclingParserEngine = PyMuPDFParserEngine
 
 
 class DocumentParser:
@@ -73,7 +72,7 @@ class DocumentParser:
         self.repository = repository
         self.parsed_dir = Path(parsed_dir)
         self.parsed_dir.mkdir(parents=True, exist_ok=True)
-        self.engine = engine if engine is not None else DoclingParserEngine()
+        self.engine = engine if engine is not None else PyMuPDFParserEngine()
 
     def parse_document(
         self,
@@ -130,15 +129,36 @@ class DocumentParser:
                 raw_path=str(raw_path),
             )
 
-            # 2. Extract layout and normalized markdown
-            markdown_content = self.engine.parse_to_markdown(raw_path)
+            # 2. Extract layout and normalized markdown (or reuse existing parsed artifact)
+            candidate_files = [
+                self.parsed_dir / f"{raw_path.stem}.md",
+                self.parsed_dir / f"{Path(doc.filename).stem}.md",
+            ]
+            prefix = doc.filename.split("_")[0]
+            for p in self.parsed_dir.glob("*.md"):
+                if p.name.startswith(prefix) and p.stat().st_size > 0:
+                    candidate_files.append(p)
+
+            candidate_md = next(
+                (c for c in candidate_files if c.exists() and c.stat().st_size > 0), None
+            )
+            if candidate_md is not None:
+                logger.info(
+                    "Reusing existing parsed markdown artifact",
+                    path=str(candidate_md),
+                    document_id=str(document_id),
+                )
+                markdown_content = candidate_md.read_text(encoding="utf-8")
+            else:
+                markdown_content = self.engine.parse_to_markdown(raw_path)
+
             if not markdown_content.strip():
                 raise ValueError("Parser returned empty content from source document")
 
             # 3. Persist markdown artifact to disk
             parsed_target_path.write_text(markdown_content, encoding="utf-8")
 
-            # 4. Update document status in PostgreSQL
+            # 4. Update document status in database
             self.repository.update_document_status(
                 document_id=document_id,
                 status="parsed",
@@ -181,5 +201,5 @@ def parse_document_to_markdown(file_path: Path, engine: ParserEngineProtocol | N
     """
     Pure procedural function that converts a document file into normalized Markdown.
     """
-    eng = engine if engine is not None else DoclingParserEngine()
+    eng = engine if engine is not None else PyMuPDFParserEngine()
     return eng.parse_to_markdown(file_path)

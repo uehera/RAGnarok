@@ -25,7 +25,7 @@ logger = structlog.get_logger(__name__)
 
 class VectorIdMap:
     """
-    Injective bidirectional mapping between PostgreSQL UUIDs and 64-bit unsigned integer IDs.
+    Injective bidirectional mapping between DuckDB UUIDs and 64-bit unsigned integer IDs.
     Guarantees loss-free translation between relational primary keys and TurboVec internal handles.
     """
 
@@ -65,7 +65,7 @@ class VectorIdMap:
         return self.register(chunk_uuid)
 
     def get_uuid(self, uint64_id: int) -> UUID | None:
-        """Translates a uint64 handle back to its PostgreSQL UUID."""
+        """Translates a uint64 handle back to its DuckDB UUID."""
         return self.id_to_uuid.get(uint64_id)
 
     def save(self, path: Path | str) -> None:
@@ -98,8 +98,11 @@ class EmbedderProtocol(Protocol):
         ...
 
 
-class SentenceTransformerEmbedder:
-    """Default embedding generator using sentence-transformers."""
+class FastEmbedEmbedder:
+    """
+    Default embedding generator using FastEmbed (ONNX).
+    Lazy-loads model to prevent startup latency and avoid PyTorch overhead.
+    """
 
     def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5") -> None:
         self.model_name = model_name
@@ -107,17 +110,23 @@ class SentenceTransformerEmbedder:
 
     def _get_model(self) -> Any:
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
+            from fastembed import TextEmbedding
 
-            self._model = SentenceTransformer(self.model_name)
+            cache_dir = Path(__file__).resolve().parents[3] / "models" / "fastembed_cache"
+            cache_dir_str = str(cache_dir) if cache_dir.exists() else None
+            self._model = TextEmbedding(model_name=self.model_name, cache_dir=cache_dir_str)
         return self._model
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
         model = self._get_model()
-        vectors = model.encode(texts, convert_to_numpy=True, normalize_embeddings=False)
+        vectors = list(model.embed(texts))
         return np.asarray(vectors, dtype=np.float32)
+
+
+# Backward-compatibility alias
+SentenceTransformerEmbedder = FastEmbedEmbedder
 
 
 def l2_normalize(vectors: np.ndarray) -> np.ndarray:
@@ -144,7 +153,7 @@ class DenseIndex:
         self.embedder = (
             embedder
             if embedder is not None
-            else SentenceTransformerEmbedder(model_name=self.config.model)
+            else FastEmbedEmbedder(model_name=self.config.model)
         )
         self.id_map = id_map if id_map is not None else VectorIdMap()
         self.index = index if index is not None else IdMapIndex(bit_width=4)

@@ -32,18 +32,30 @@ class TokenCounterProtocol(Protocol):
 
 
 class TiktokenCounter:
-    """Token counter using OpenAI's tiktoken library."""
+    """Token counter using OpenAI's tiktoken library with offline heuristic fallback."""
 
     def __init__(self, encoding_name: str = "cl100k_base") -> None:
-        import tiktoken
-
         self.encoding_name = encoding_name
-        self._encoding = tiktoken.get_encoding(encoding_name)
+        self._encoding: Any = None
+        try:
+            import tiktoken
+
+            self._encoding = tiktoken.get_encoding(encoding_name)
+        except Exception:
+            self._encoding = None
 
     def count_tokens(self, text: str) -> int:
         if not text:
             return 0
-        return len(self._encoding.encode(text))
+        if self._encoding is not None:
+            try:
+                return len(self._encoding.encode(text))
+            except Exception:
+                pass
+        # Robust offline fallback: approximate English token count (~4 chars / token)
+        words = len(text.split())
+        chars = len(text)
+        return max(1, max(words, chars // 4))
 
 
 class AutoTokenizerCounter:
@@ -63,14 +75,41 @@ class AutoTokenizerCounter:
         try:
             from transformers import AutoTokenizer
 
-            # Attempt local or cached loading first to prevent network blocks
+            # 1. Check local FastEmbed / models cache first
+            cache_dirs = [
+                Path("models/fastembed_cache/models--Qdrant--bge-small-en-v1.5-onnx-Q/snapshots"),
+                Path(__file__).resolve().parents[3] / "models" / "fastembed_cache" / "models--Qdrant--bge-small-en-v1.5-onnx-Q" / "snapshots",
+                Path("models/ms-marco-MiniLM-L-12-v2"),
+            ]
+            for c_dir in cache_dirs:
+                if c_dir.exists():
+                    if c_dir.name == "snapshots":
+                        subdirs = list(c_dir.glob("*"))
+                        if subdirs and (subdirs[0] / "tokenizer.json").exists():
+                            self._tokenizer = AutoTokenizer.from_pretrained(str(subdirs[0]), local_files_only=True)
+                            return
+                    elif (c_dir / "tokenizer.json").exists():
+                        self._tokenizer = AutoTokenizer.from_pretrained(str(c_dir), local_files_only=True)
+                        return
+
+            # 2. Attempt local HF cache loading
+            try:
+                self._tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    local_files_only=True,
+                )
+                return
+            except Exception:
+                pass
+
+            # 3. Attempt network loading if online
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
                 local_files_only=False,
             )
         except Exception as exc:
             logger.warning(
-                "Failed to load Hugging Face AutoTokenizer; falling back to tiktoken",
+                "Failed to load Hugging Face AutoTokenizer; falling back to offline counter",
                 model=self.model_name,
                 error=str(exc),
             )
@@ -119,9 +158,11 @@ class TwoStageChunker:
         config: ChunkingConfig | None = None,
         model_name: str = "BAAI/bge-small-en-v1.5",
         token_counter: TokenCounterProtocol | None = None,
+        document_guard: Any | None = None,
     ) -> None:
         self.config = config if config is not None else ChunkingConfig()
         self.model_name = model_name
+        self.document_guard = document_guard
         self.token_counter = (
             token_counter
             if token_counter is not None
@@ -142,6 +183,7 @@ class TwoStageChunker:
         self,
         markdown_content: str,
         document_id: UUID,
+        source_name: str | None = None,
     ) -> tuple[list[ParentChunk], list[ChildChunk]]:
         """
         Executes two-stage chunking on normalized Markdown content:
@@ -163,6 +205,21 @@ class TwoStageChunker:
         """
         if not markdown_content.strip():
             return [], []
+
+        # Ingestion Document Guard: Screen, defang or quarantine indirect prompt injections
+        if self.document_guard is not None:
+            guard_decision = self.document_guard.validate(
+                content=markdown_content,
+                source_name=source_name,
+            )
+            if guard_decision.quarantined:
+                logger.warning(
+                    "TwoStageChunker: Document quarantined; skipping chunk generation",
+                    document_id=str(document_id),
+                    quarantine_path=guard_decision.quarantine_path,
+                )
+                return [], []
+            markdown_content = guard_decision.defanged_content
 
         # -------------------------------------------------------------
         # Stage 1: Level 1 Markdown Header Splitting

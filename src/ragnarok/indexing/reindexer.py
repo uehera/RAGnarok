@@ -2,7 +2,7 @@
 Standalone Re-Indexing Subsystem.
 
 Rebuilds BM25s lexical inverted index and TurboVec dense vector index directly
-from PostgreSQL child chunk text without re-parsing raw source files.
+from DuckDB child chunk text without re-parsing raw source files.
 Finalizes processing job lifecycles with state transitions to COMPLETED.
 """
 
@@ -24,7 +24,7 @@ logger = structlog.get_logger(__name__)
 class ReindexService:
     """
     Coordinates standalone regeneration of both lexical and dense indexes.
-    Sources text exclusively from PostgreSQL chunks table.
+    Sources text exclusively from DuckDB chunks table.
     """
 
     def __init__(
@@ -46,8 +46,8 @@ class ReindexService:
 
     def reindex_all(self, job_id: UUID | None = None) -> int:
         """
-        Executes complete re-indexing across all child chunks in PostgreSQL:
-        1. Reads finalized child chunks from PostgreSQL.
+        Executes complete re-indexing across all child chunks in DuckDB:
+        1. Reads finalized child chunks from DuckDB.
         2. Transitions processing job to 'indexing' if job_id is provided.
         3. Builds BM25s index and serializes to data/indexes/bm25/.
         4. Builds TurboVec dense index and serializes to data/indexes/dense/.
@@ -60,7 +60,7 @@ class ReindexService:
             self.repository.update_job_stage(job_id=job_id, stage="indexing")
 
         chunks = self.repository.get_all_child_chunks()
-        logger.info("Retrieved child chunks from PostgreSQL for re-indexing", count=len(chunks))
+        logger.info("Retrieved child chunks from DuckDB for re-indexing", count=len(chunks))
 
         # 1. Build and save lexical index
         lexical_idx = LexicalIndex(config=self.config.lexical_retrieval)

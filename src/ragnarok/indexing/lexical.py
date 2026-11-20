@@ -2,7 +2,7 @@
 Lexical Indexing Subsystem (BM25s).
 
 Builds, persists, and queries inverted BM25 indexes using bm25s[core].
-Maintains 1:1 bijective mappings between internal document positions and PostgreSQL chunk UUIDs.
+Maintains 1:1 bijective mappings between internal document positions and DuckDB chunk UUIDs.
 """
 
 from __future__ import annotations

@@ -29,7 +29,7 @@ logger = structlog.get_logger(__name__)
 
 class RelationalRepository:
     """
-    Data access layer for PostgreSQL metadata store.
+    Data access layer for DuckDB metadata store.
     Encapsulates all SQL queries and manages atomic transactional boundaries.
     """
 
@@ -98,7 +98,7 @@ class RelationalRepository:
                 SELECT document_id, filename, raw_file_path, parsed_file_path,
                        file_type, file_size_bytes, checksum, status, created_at
                 FROM documents
-                WHERE filename = %s;
+                WHERE filename = ?;
                 """,
                 (filename,),
             )
@@ -116,6 +116,33 @@ class RelationalRepository:
                 status=row[7],
                 created_at=row[8],
             )
+
+    def list_all_documents(self) -> list[Document]:
+        """Lists all document records ordered by creation date."""
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT document_id, filename, raw_file_path, parsed_file_path,
+                       file_type, file_size_bytes, checksum, status, created_at
+                FROM documents
+                ORDER BY created_at DESC;
+                """
+            )
+            rows = cur.fetchall()
+            return [
+                Document(
+                    document_id=row[0],
+                    filename=row[1],
+                    raw_file_path=row[2],
+                    parsed_file_path=row[3],
+                    file_type=row[4],
+                    file_size_bytes=row[5],
+                    checksum=row[6],
+                    status=row[7],
+                    created_at=row[8],
+                )
+                for row in rows
+            ]
 
     def get_documents_by_ids(self, document_ids: list[UUID]) -> dict[UUID, Document]:
         """Retrieves document records matching a list of document UUIDs."""
@@ -247,15 +274,14 @@ class RelationalRepository:
 
     def delete_document(self, document_id: UUID) -> bool:
         """
-        Deletes a document from the database.
-        Relies on ON DELETE CASCADE to automatically purge all associated
-        parent chunks, child chunks, and processing jobs.
+        Deletes a document from the database and cascades deletion
+        to child chunks, parent chunks, and processing jobs.
         """
         with self.pool.connection() as conn, conn.transaction(), conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM documents WHERE document_id = %s;",
-                (document_id,),
-            )
+            cur.execute("DELETE FROM chunks WHERE document_id = ?;", (document_id,))
+            cur.execute("DELETE FROM parent_chunks WHERE document_id = ?;", (document_id,))
+            cur.execute("DELETE FROM processing_jobs WHERE document_id = ?;", (document_id,))
+            cur.execute("DELETE FROM documents WHERE document_id = ?;", (document_id,))
             return cur.rowcount > 0
 
     def create_processing_job(
@@ -560,12 +586,10 @@ class RelationalRepository:
 
     def delete_parent_chunk(self, parent_chunk_id: UUID) -> bool:
         """
-        Deletes a parent chunk from the database.
-        Cascades automatically to delete all child chunks linked via parent_chunk_id.
+        Deletes a parent chunk from the database and cascades deletion
+        to all associated child chunks.
         """
         with self.pool.connection() as conn, conn.transaction(), conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM parent_chunks WHERE parent_chunk_id = %s;",
-                (parent_chunk_id,),
-            )
+            cur.execute("DELETE FROM chunks WHERE parent_chunk_id = ?;", (parent_chunk_id,))
+            cur.execute("DELETE FROM parent_chunks WHERE parent_chunk_id = ?;", (parent_chunk_id,))
             return cur.rowcount > 0

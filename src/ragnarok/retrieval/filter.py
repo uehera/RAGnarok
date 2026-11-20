@@ -2,7 +2,7 @@
 Metadata Filtering Engine Subsystem.
 
 Extracts explicit metadata constraints (filename, document ID, chunk index / sequence range)
-from user queries, queries PostgreSQL to resolve matching child chunk records,
+from user queries, queries DuckDB to resolve matching child chunk records,
 and translates matching records into 64-bit TurboVec integer allowlists.
 Returns an immediate empty candidate set if zero chunks match constraints.
 """
@@ -121,7 +121,7 @@ def extract_constraints(query: str) -> MetadataConstraint:
 
 class MetadataFilterEngine:
     """
-    Resolves natural-language metadata constraints against PostgreSQL
+    Resolves natural-language metadata constraints against DuckDB
     and translates matching records into TurboVec 64-bit integer allowlists.
     """
 
@@ -135,7 +135,7 @@ class MetadataFilterEngine:
 
     def resolve_chunk_uuids(self, constraints: MetadataConstraint) -> list[UUID]:
         """
-        Queries PostgreSQL for child chunk UUIDs satisfying the given metadata constraints.
+        Queries DuckDB for child chunk UUIDs satisfying the given metadata constraints.
         Returns empty list if constraints are specified but zero records match.
         """
         if not constraints.has_constraints:
@@ -162,7 +162,7 @@ class MetadataFilterEngine:
         )
 
         logger.info(
-            "Resolved metadata constraints in PostgreSQL",
+            "Resolved metadata constraints in DuckDB",
             filename=constraints.filename,
             document_id=str(doc_id) if doc_id else None,
             matching_chunks=len(chunk_uuids),

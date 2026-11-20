@@ -11,6 +11,7 @@ from ragnarok.ingestion.parser import (
     DoclingParserEngine,
     DocumentParser,
     ParserEngineProtocol,
+    PyMuPDFParserEngine,
 )
 from ragnarok.ingestion.pipeline import IngestionPipeline
 from ragnarok.ingestion.staging import (
@@ -29,6 +30,7 @@ __all__ = [
     "DuplicateDocumentError",
     "IngestionPipeline",
     "ParserEngineProtocol",
+    "PyMuPDFParserEngine",
     "StagingResult",
     "StagingService",
     "TiktokenCounter",

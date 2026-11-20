@@ -33,7 +33,7 @@ class MatchedChildReference(BaseModel):
 
 class ExpandedParentContext(BaseModel):
     """
-    Expanded parent section retrieved from PostgreSQL for surviving top-K children.
+    Expanded parent section retrieved from DuckDB for surviving top-K children.
     Associates the complete parent text with all matching children and inherits best-child rank.
     """
 
@@ -66,7 +66,7 @@ class ContextBlock(BaseModel):
     source_index: int = Field(ge=1, description="1-based sequential source identifier")
     document_id: UUID = Field(description="Source document identifier")
     filename: str = Field(description="Source document filename")
-    parent_chunk_id: UUID = Field(description="Unique parent identifier in PostgreSQL")
+    parent_chunk_id: UUID = Field(description="Unique parent identifier in DuckDB")
     parent_index: int = Field(
         ge=0, description="Sequence order of the parent in the source document"
     )

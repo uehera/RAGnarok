@@ -40,13 +40,22 @@ def retrieve_and_assemble_context(
     strategy: str = "hybrid",
     rerank: bool = True,
     budget: int = 0,
+    doc_filter: str | None = None,
 ) -> tuple[AssembledContextPayload, list[ChildResultCandidate], dict[str, float]]:
     """
     Executes end-to-end retrieval, reranking, parent expansion, and budgeting:
     1. Loads BM25s and TurboVec indexes from data/indexes/.
     2. Runs Lexical, Dense, or Hybrid (RRF) search.
     3. Re-scores candidates using Cross-Encoder (if enabled).
-    4. Expands parent chunks from PostgreSQL and applies token budgeting.
+    4. Expands parent chunks from DuckDB and applies token budgeting.
+
+    Parameters:
+        query: User input retrieval query.
+        config: Application configuration.
+        strategy: Retrieval strategy ("hybrid", "dense", "lexical").
+        rerank: Whether to execute Cross-Encoder reranking.
+        budget: Token budget override (0 uses config default).
+        doc_filter: Optional filename filter to restrict retrieval to a specific document.
 
     Returns:
         tuple[AssembledContextPayload, list[ChildResultCandidate], dict[str, float]]:
@@ -124,6 +133,23 @@ def retrieve_and_assemble_context(
         candidates = dense_searcher.search(query=query, top_k=top_n)
 
     timings["retrieval_ms"] = (time.perf_counter() - start_retrieval) * 1000.0
+
+    # Filter candidates by document scope if active
+    if doc_filter and candidates and repo:
+        doc_pattern = doc_filter.strip().lower()
+        all_docs = repo.list_all_documents() if hasattr(repo, "list_all_documents") else []
+        matching_doc_ids = {
+            d.document_id for d in all_docs if doc_pattern in d.filename.lower()
+        }
+        if matching_doc_ids:
+            candidates = [c for c in candidates if c.document_id in matching_doc_ids]
+        else:
+            # Fallback exact lookup
+            exact_doc = repo.get_document_by_filename(doc_filter)
+            if exact_doc:
+                candidates = [c for c in candidates if c.document_id == exact_doc.document_id]
+            else:
+                candidates = []
 
     # 2. Cross-Encoder Reranking Stage
     start_rerank = time.perf_counter()

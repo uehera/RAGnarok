@@ -61,14 +61,21 @@ class IngestionPipeline:
                 parsed_dir=config.ingestion.parsed_directory,
             )
         )
-        self.chunker = (
-            chunker
-            if chunker is not None
-            else TwoStageChunker(
+        if chunker is not None:
+            self.chunker = chunker
+        else:
+            from ragnarok.guardrails.document_guard import DocumentSecurityGuard
+
+            doc_guard = (
+                DocumentSecurityGuard(config=config.guardrails)
+                if config.guardrails.enabled and config.guardrails.enable_document_guard
+                else None
+            )
+            self.chunker = TwoStageChunker(
                 config=config.chunking,
                 model_name=config.embedding.model,
+                document_guard=doc_guard,
             )
-        )
         self.reindexer = (
             reindexer
             if reindexer is not None
@@ -82,10 +89,10 @@ class IngestionPipeline:
         """
         Processes a single file through Stages 1 to 4:
         - Stages and calculates SHA-256 hash.
-        - If already fully chunked in PostgreSQL, safely skips as duplicate.
+        - If already fully chunked in DuckDB, safely skips as duplicate.
         - Otherwise parses layout to Markdown (Stage 2).
         - Generates parent and child chunks (Stage 3).
-        - Atomically persists chunks to PostgreSQL (Stage 4).
+        - Atomically persists chunks to DuckDB (Stage 4).
 
         Returns:
             tuple[Document | None, bool]: (document, is_duplicate)
@@ -129,7 +136,24 @@ class IngestionPipeline:
         parent_chunks, child_chunks = self.chunker.chunk_markdown(
             markdown_content=markdown_content,
             document_id=doc_id,
+            source_name=file_path.name,
         )
+
+        if not parent_chunks and not child_chunks:
+            logger.warning(
+                "Document produced no chunks (quarantined or empty); skipping relational persistence",
+                document_id=str(doc_id),
+                file_path=str(file_path),
+            )
+            self.repository.update_document_status(doc_id, status="failed")
+            if job_id is not None:
+                self.repository.update_job_stage(
+                    job_id=job_id,
+                    stage="failed",
+                    error_message="Quarantined: malicious prompt injection directive",
+                    completed=True,
+                )
+            return updated_doc, False
 
         # Stage 4: Atomic Relational Persistence
         self.repository.persist_chunks_atomically(
@@ -149,5 +173,5 @@ class IngestionPipeline:
         return updated_doc, False
 
     def reindex(self) -> int:
-        """Stage 5: Builds BM25s and TurboVec indexes from all chunks in PostgreSQL."""
+        """Stage 5: Builds BM25s and TurboVec indexes from all chunks in DuckDB."""
         return self.reindexer.reindex_all()

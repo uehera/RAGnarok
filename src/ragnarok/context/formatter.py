@@ -109,6 +109,8 @@ def assemble_context_payload(
             "parent_chunk_id": str(parent.parent_chunk_id),
             "parent_index": parent.parent_index,
             "heading_path": parent.heading_path,
+            "content": parent.content,
+            "token_count": block_tokens,
             "best_child_rank": parent.best_child_rank,
             "matched_children": [
                 {

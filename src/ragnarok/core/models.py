@@ -34,7 +34,7 @@ class Document(BaseModel):
 class ParentChunk(BaseModel):
     """
     Represents a broader contextual container produced by heading-based splitting.
-    Stored exclusively in PostgreSQL; never indexed into BM25s or TurboVec.
+    Stored exclusively in DuckDB; never indexed into BM25s or TurboVec.
     """
 
     parent_chunk_id: UUID = Field(default_factory=uuid4)

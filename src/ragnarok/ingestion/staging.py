@@ -2,7 +2,7 @@
 Document Ingestion & Staging Subsystem.
 
 Implements streaming SHA-256 calculation, duplicate rejection,
-raw file archiving, and initial processing job creation in PostgreSQL.
+raw file archiving, and initial processing job creation in DuckDB.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def validate_staging_file(
 class StagingService:
     """
     Stateful service coordinating document receipt, validation,
-    SHA-256 deduplication, filesystem storage, and PostgreSQL tracking.
+    SHA-256 deduplication, filesystem storage, and DuckDB tracking.
     """
 
     def __init__(
@@ -152,7 +152,7 @@ class StagingService:
         Executes Stage 1 ingestion:
         1. Validates file existence, non-emptiness, and format.
         2. Computes streaming SHA-256 checksum.
-        3. Checks deduplication in PostgreSQL.
+        3. Checks deduplication in DuckDB.
         4. If duplicate: purges staging file, logs warning, returns StagingResult(is_duplicate=True).
         5. If unique: moves to data/raw/<document_id>.<ext>, inserts document and job records.
         """
@@ -163,7 +163,7 @@ class StagingService:
         # Compute SHA-256
         checksum = compute_sha256(path)
 
-        # Check existing document in PostgreSQL
+        # Check existing document in DuckDB
         existing = self.repository.get_document_by_checksum(checksum)
         if existing is not None:
             logger.warning(
@@ -198,7 +198,7 @@ class StagingService:
         # Move file permanently to data/raw/<stem>_<short_id>.<ext>
         shutil.move(str(path), str(raw_target_path))
 
-        # Register document in PostgreSQL
+        # Register document in DuckDB
         doc = Document(
             document_id=document_id,
             filename=path.name,
