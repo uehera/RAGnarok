@@ -118,11 +118,11 @@ async def test_token_streaming_and_ttft_measurement() -> None:
     """
     mock_tokens = ["Parent-", "child", " retrieval", " indexes", " small", " chunks", " [1]."]
     mock_client = MockStreamingClient(
-        token_streams={"groq/llama-3.3-70b-versatile": mock_tokens},
+        token_streams={"groq/qwen/qwen3.8-27b": mock_tokens},
         token_delay_seconds=0.01,
     )
 
-    config = GenerationConfig(model="groq/llama-3.3-70b-versatile")
+    config = GenerationConfig(model="groq/qwen/qwen3.8-27b")
     generator = AnswerGenerator(config=config, client=mock_client)
 
     response = await generator.generate(
@@ -140,7 +140,7 @@ async def test_token_streaming_and_ttft_measurement() -> None:
 
     # Asserts streamed text matches concatenation
     assert response.answer == "Parent-child retrieval indexes small chunks [1]."
-    assert response.model_used == "groq/llama-3.3-70b-versatile"
+    assert response.model_used == "groq/qwen/qwen3.8-27b"
     assert response.fallback_triggered is False
 
     # Asserts TTFT is measured and well below 500ms
@@ -156,7 +156,7 @@ async def test_fallback_chain_on_provider_rate_limit() -> None:
     verifies that the fallback chain transparently invokes the secondary model.
     """
     primary = "openai/gpt-4o"
-    secondary = "groq/llama-3.3-70b-versatile"
+    secondary = "groq/qwen/qwen3.8-27b"
 
     mock_client = MockStreamingClient(
         token_streams={secondary: ["Fallback", " answer", " generated", " cleanly", " [1]."]},

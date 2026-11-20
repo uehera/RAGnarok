@@ -1,5 +1,5 @@
 """
-Unit and integration tests for Testing Point 4: PostgreSQL Storage Success & Relational Integrity.
+Unit and integration tests for Testing Point 4: DuckDB Storage Success & Relational Integrity.
 
 Verifies:
 - Atomic transaction boundaries:
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-import psycopg.errors
+import duckdb
 import pytest
 
 from ragnarok.core.models import ChildChunk, Document, ParentChunk
@@ -145,8 +145,8 @@ def test_unique_ordering_constraints(
         parent_index=0,  # Duplicate parent_index for same document_id
     )
 
-    # Duplicate parent_index must raise UniqueViolation
-    with pytest.raises(psycopg.errors.UniqueViolation):
+    # Duplicate parent_index must raise constraint exception
+    with pytest.raises((duckdb.ConstraintException, duckdb.IntegrityError)):
         repo.persist_chunks_atomically(
             document_id=doc_id,
             parent_chunks=[parent1, parent2],
@@ -173,8 +173,8 @@ def test_unique_ordering_constraints(
         chunk_index=0,  # Duplicate chunk_index for same document_id
     )
 
-    # Duplicate chunk_index must raise UniqueViolation
-    with pytest.raises(psycopg.errors.UniqueViolation):
+    # Duplicate chunk_index must raise constraint exception
+    with pytest.raises((duckdb.ConstraintException, duckdb.IntegrityError)):
         repo.persist_chunks_atomically(
             document_id=doc_id,
             parent_chunks=[],

@@ -5,9 +5,9 @@ Verifies:
 - BM25s index creation, tokenization settings, serialization, and disk reload.
 - Ordered integer-to-UUID 1:1 mapping consistency for lexical search.
 - TurboVec dense vector index creation, dimension validation, serialization, and disk reload.
-- 1:1 bidirectional injective mapping between PostgreSQL UUIDs and 64-bit TurboVec IDs.
+- 1:1 bidirectional injective mapping between DuckDB UUIDs and 64-bit TurboVec IDs.
 - Cosine similarity search and metadata allowlist filtering.
-- Standalone ReindexService regenerating both indexes directly from PostgreSQL chunks table.
+- Standalone ReindexService regenerating both indexes directly from DuckDB chunks table.
 - Job state transition to COMPLETED with valid completed_at timestamp.
 """
 
@@ -277,7 +277,7 @@ def test_reindex_service_standalone_regeneration(
 ) -> None:
     """
     Verifies that ReindexService regenerates both BM25s and TurboVec indexes
-    directly from PostgreSQL child chunks without touching raw files,
+    directly from DuckDB child chunks without touching raw files,
     and transitions processing_jobs.stage to COMPLETED with completed_at set.
     """
     bm25_dir = tmp_path / "indexes" / "bm25"

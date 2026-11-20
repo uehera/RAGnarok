@@ -446,10 +446,10 @@ def test_full_context_management_service_end_to_end() -> None:
     assert "[Source 2]" in payload.provenance_map
 
 
-def test_live_postgresql_parent_expansion_integration(repo: RelationalRepository) -> None:
+def test_live_parent_expansion_integration(repo: RelationalRepository) -> None:
     """
     Integration test verifying that ParentContextExpander works directly with
-    RelationalRepository against a live PostgreSQL database instance.
+    RelationalRepository against a live DuckDB database instance.
     """
     doc_id = uuid4()
     doc = Document(
@@ -469,14 +469,14 @@ def test_live_postgresql_parent_expansion_integration(repo: RelationalRepository
     parent_1 = ParentChunk(
         parent_chunk_id=p1_id,
         document_id=doc_id,
-        content="Live PostgreSQL Parent 1 content.",
+        content="Live Parent 1 content.",
         parent_index=0,
         heading_path=["Live", "Section 1"],
     )
     parent_2 = ParentChunk(
         parent_chunk_id=p2_id,
         document_id=doc_id,
-        content="Live PostgreSQL Parent 2 content.",
+        content="Live Parent 2 content.",
         parent_index=1,
         heading_path=["Live", "Section 2"],
     )
@@ -529,7 +529,7 @@ def test_live_postgresql_parent_expansion_integration(repo: RelationalRepository
     assert len(expanded) == 2
     assert expanded[0].parent_chunk_id == p1_id
     assert expanded[0].filename == "live_integration_spec.md"
-    assert expanded[0].content == "Live PostgreSQL Parent 1 content."
+    assert expanded[0].content == "Live Parent 1 content."
     assert expanded[0].best_child_rank == 1
 
     assert expanded[1].parent_chunk_id == p2_id

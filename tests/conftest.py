@@ -19,31 +19,20 @@ from ragnarok.storage.database import DatabasePool
 from ragnarok.storage.repository import RelationalRepository
 
 
-def is_postgres_reachable() -> bool:
-    """Verifies that the live PostgreSQL container is reachable."""
-    try:
-        cfg = load_config()
-        with (
-            DatabasePool(database_url=cfg.secrets.database_url, timeout_seconds=2.0) as pool,
-            pool.connection() as conn,
-            conn.cursor() as cur,
-        ):
-            cur.execute("SELECT 1;")
-            row = cur.fetchone()
-            return row is not None and row[0] == 1
-    except Exception:
-        return False
+def is_db_reachable() -> bool:
+    """Verifies that the DuckDB database is reachable (always True for embedded engine)."""
+    return True
+
+
+is_postgres_reachable = is_db_reachable
 
 
 @pytest.fixture(scope="session")
-def live_db_pool() -> Generator[DatabasePool, None, None]:
-    """Provides a shared DatabasePool for integration tests if PostgreSQL is online."""
-    if not is_postgres_reachable():
-        pytest.skip("PostgreSQL container is not reachable at localhost:5432")
-
-    cfg = load_config()
-    with DatabasePool(database_url=cfg.secrets.database_url) as pool:
-        # Ensure schema is applied
+def live_db_pool(tmp_path_factory: pytest.TempPathFactory) -> Generator[DatabasePool, None, None]:
+    """Provides a shared DatabasePool for integration tests using an isolated DuckDB file."""
+    test_db_dir = tmp_path_factory.mktemp("db")
+    test_db_path = str(test_db_dir / "test_ragnarok.duckdb")
+    with DatabasePool(db_path=test_db_path) as pool:
         pool.init_schema(Path("scripts/init_schema.sql"))
         yield pool
 

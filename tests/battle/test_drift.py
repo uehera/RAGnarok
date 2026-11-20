@@ -24,7 +24,7 @@ from ragnarok.storage.repository import RelationalRepository
 def test_drift_ghost_vector_handling_omits_cleanly(repo: RelationalRepository) -> None:
     """
     Simulates a 'ghost vector' where an index returns a chunk UUID that no longer
-    exists in PostgreSQL (e.g. deleted document).
+    exists in DuckDB (e.g. deleted document).
     Asserts parent context expansion catches missing relational record, logs an integrity
     warning, and omits the phantom chunk cleanly without crashing.
     """
@@ -34,7 +34,7 @@ def test_drift_ghost_vector_handling_omits_cleanly(repo: RelationalRepository) -
         config=config.context_management,
     )
 
-    # Candidate referencing a completely non-existent chunk in PostgreSQL
+    # Candidate referencing a completely non-existent chunk in DuckDB
     ghost_chunk_id = uuid4()
     ghost_parent_id = uuid4()
     ghost_candidate = ChildResultCandidate(

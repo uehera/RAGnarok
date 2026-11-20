@@ -19,7 +19,12 @@ from uuid import uuid4
 import pytest
 
 from ragnarok.core.models import Document
-from ragnarok.ingestion.parser import DoclingParserEngine, DocumentParser, ParserEngineProtocol
+from ragnarok.ingestion.parser import (
+    DoclingParserEngine,
+    DocumentParser,
+    ParserEngineProtocol,
+    PyMuPDFParserEngine,
+)
 from ragnarok.storage.repository import RelationalRepository
 
 
@@ -158,7 +163,7 @@ def test_parser_exception_handling_and_failure_boundaries(
     # Raw file must still be retained for diagnostic inspection
     assert corrupted_file.exists()
 
-    # Document status in PostgreSQL must be 'failed'
+    # Document status in DuckDB must be 'failed'
     db_doc = repo.get_document(doc_id)
     assert db_doc is not None
     assert db_doc.status == "failed"
@@ -170,3 +175,50 @@ def test_parser_exception_handling_and_failure_boundaries(
     assert db_job.error_message is not None
     assert "Corrupted document" in db_job.error_message
     assert "Traceback" in db_job.error_message
+
+
+def test_pymupdf_parser_direct_txt_and_md(isolated_paths: dict[str, Path]) -> None:
+    """Verifies direct UTF-8 file reading for .md and .txt without external parser invocation."""
+    engine = PyMuPDFParserEngine()
+
+    # Plain text file
+    txt_file = isolated_paths["raw"] / "sample.txt"
+    txt_content = "This is a raw text file.\nLine 2 with UTF-8 symbols: äöü and quotes."
+    txt_file.write_text(txt_content, encoding="utf-8")
+    assert engine.parse_to_markdown(txt_file) == txt_content
+
+    # Markdown file
+    md_file = isolated_paths["raw"] / "sample.md"
+    md_content = "# Header\n\n- item 1\n- item 2\n\n```python\nprint('hello')\n```"
+    md_file.write_text(md_content, encoding="utf-8")
+    assert engine.parse_to_markdown(md_file) == md_content
+
+
+def test_pymupdf_parser_pdf_extraction(isolated_paths: dict[str, Path]) -> None:
+    """Verifies PDF text extraction via PyMuPDF (pymupdf4llm)."""
+    import pymupdf
+
+    engine = PyMuPDFParserEngine()
+    pdf_file = isolated_paths["raw"] / "test_doc.pdf"
+
+    # Create synthetic PDF
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((50, 72), "RAGnarok Fast Extraction\nThis is synthetic PDF test content.")
+    doc.save(pdf_file)
+    doc.close()
+
+    extracted = engine.parse_to_markdown(pdf_file)
+    assert "RAGnarok Fast Extraction" in extracted
+    assert "synthetic PDF test content" in extracted
+
+
+def test_pymupdf_parser_unsupported_format(isolated_paths: dict[str, Path]) -> None:
+    """Verifies ValueError is raised for unsupported extensions."""
+    engine = PyMuPDFParserEngine()
+    unsupported = isolated_paths["raw"] / "doc.unsupported"
+    unsupported.write_text("irrelevant", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unsupported file format for parsing"):
+        engine.parse_to_markdown(unsupported)
+

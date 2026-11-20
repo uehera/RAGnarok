@@ -274,9 +274,9 @@ def test_probe_embed() -> None:
     """Verifies rag test embed measures latency and verifies dimensions."""
     mock_model = MagicMock()
     mock_vector = [0.05] * 384
-    mock_model.encode.return_value = mock_vector
+    mock_model.embed.return_value = [mock_vector]
 
-    with patch("sentence_transformers.SentenceTransformer", return_value=mock_model):
+    with patch("fastembed.TextEmbedding", return_value=mock_model):
         res = runner.invoke(app, ["test", "embed", "RAGnarok vector probe text"])
         assert res.exit_code == 0
         assert "Embedding Service Probe" in res.output
@@ -526,7 +526,7 @@ def test_visuals_stats_dashboard(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_repl_session_slash_commands() -> None:
-    """Verifies ReplSession handles all runtime parameter overrides."""
+    """Verifies ReplSession handles minimal chat commands (/strategy, /rerank, /sources, /clear, /exit)."""
     session = ReplSession()
 
     # /strategy override
@@ -539,20 +539,8 @@ def test_repl_session_slash_commands() -> None:
     assert session.handle_slash_command("/rerank on") is True
     assert session.rerank_enabled
 
-    # /budget override
-    assert session.handle_slash_command("/budget 2500") is True
-    assert session.budget_tokens == 2500
-
-    # /waterfall toggle
-    assert session.handle_slash_command("/waterfall") is True
-    assert session.show_waterfall is True
-
-    # /provenance toggle
-    assert session.handle_slash_command("/provenance") is True
-    assert session.show_provenance is True
-
-    # /stats and /help
-    assert session.handle_slash_command("/stats") is True
+    # /sources and /help
+    assert session.handle_slash_command("/sources") is True
     assert session.handle_slash_command("/help") is True
 
     # /clear history
@@ -582,7 +570,6 @@ def test_repl_session_query_execution() -> None:
         mock_service_cls.return_value = mock_service
 
         session = ReplSession()
-        session.show_waterfall = True
         session.execute_query("What is parent-child chunking?")
 
         assert session.query_count == 1
@@ -591,12 +578,26 @@ def test_repl_session_query_execution() -> None:
         assert session.history[1]["content"] == "Streaming test response."
 
 
-def test_repl_session_dev_command_guard() -> None:
-    """Verifies ReplSession intercepts developer workspace commands with a notice."""
-    session = ReplSession()
-    session.execute_query("ingest docs/")
-    assert session.query_count == 0
-    assert len(session.history) == 0
+def test_repl_session_natural_query_pass_through() -> None:
+    """Verifies natural conversational questions pass cleanly through ReplSession."""
+    mock_resp = GenerationResponse(
+        query="What is the doctor's role?",
+        answer="A doctor provides medical care.",
+        model_used="mock-model",
+        citations=[],
+        latency_metrics=LatencyMetrics(ttft_ms=50.0, total_duration_ms=100.0),
+        fallback_triggered=False,
+    )
+
+    with patch("ragnarok.generation.service.GenerationService.from_config") as mock_service_cls:
+        mock_service = MagicMock()
+        mock_service.generate_sync.return_value = mock_resp
+        mock_service_cls.return_value = mock_service
+
+        session = ReplSession()
+        session.execute_query("What is the doctor's role?")
+        assert session.query_count == 1
+        assert len(session.history) == 2
 
 
 def test_dev_shell_session_dispatch() -> None:
@@ -617,6 +618,12 @@ def test_dev_shell_session_dispatch() -> None:
     assert dev_session.dispatch("exit") is False
     assert dev_session.dispatch("quit") is False
     assert dev_session.dispatch("/exit") is False
+
+    # Command counter tracking and empty command rejection
+    assert dev_session.command_count == 4
+    assert dev_session.dispatch("") is True
+    assert dev_session.dispatch("   ") is True
+    assert dev_session.command_count == 4
 
 
 def test_dev_command_and_alias_help() -> None:
@@ -652,3 +659,129 @@ def test_add_command_and_dev_shell(tmp_path: Path) -> None:
     dev_session = DevShellSession()
     assert dev_session.dispatch(f"rag add {src_file} {dest_dir}") is True
     assert dev_session.dispatch(f"add {src_file} {dest_dir}") is True
+
+
+def test_repl_multi_turn_history_forwarding() -> None:
+    """Verifies that multi-turn dialogue history is retained and forwarded to generation."""
+    mock_resp1 = GenerationResponse(
+        query="What is agentic AI?",
+        answer="Agentic AI plans and acts autonomously.",
+        model_used="mock-model",
+        citations=[],
+        latency_metrics=LatencyMetrics(ttft_ms=50.0, total_duration_ms=150.0),
+        fallback_triggered=False,
+    )
+    mock_resp2 = GenerationResponse(
+        query="Can you compare patterns in more detail?",
+        answer="Pattern 2 uses tools; Pattern 3 uses multiple agents.",
+        model_used="mock-model",
+        citations=[],
+        latency_metrics=LatencyMetrics(ttft_ms=60.0, total_duration_ms=180.0),
+        fallback_triggered=False,
+    )
+
+    with patch("ragnarok.generation.service.GenerationService.from_config") as mock_service_cls:
+        mock_service = MagicMock()
+        mock_service.generate_sync.side_effect = [mock_resp1, mock_resp2]
+        mock_service_cls.return_value = mock_service
+
+        session = ReplSession()
+
+        # Turn 1
+        session.execute_query("What is agentic AI?")
+        assert session.query_count == 1
+        assert len(session.history) == 2
+        assert session.history[0]["content"] == "What is agentic AI?"
+        assert session.history[1]["content"] == "Agentic AI plans and acts autonomously."
+
+        # Turn 2 (Follow-up)
+        session.execute_query("Can you compare patterns in more detail?")
+        assert session.query_count == 2
+        assert len(session.history) == 4
+        # Verify that generate_sync received the prior conversation history
+        call_args = mock_service.generate_sync.call_args_list[1]
+        assert call_args.kwargs.get("history") is not None
+        assert len(call_args.kwargs["history"]) == 2
+
+
+def test_repl_sources_and_dev_source_inspector() -> None:
+    """Verifies /sources in chat and /source <N> in dev shell."""
+    from ragnarok.cli.dev_shell import DevShellSession
+    from ragnarok.context.contract import AssembledContextPayload, ContextBlock
+
+    session = ReplSession()
+    dev_session = DevShellSession()
+
+    block1 = ContextBlock(
+        source_index=1,
+        document_id=uuid4(),
+        filename="agentic_ai_overview.pdf",
+        parent_chunk_id=uuid4(),
+        parent_index=0,
+        heading_path=["AGENTIC AI", "Core Components"],
+        content="Agentic AI components include planning, tools, and reflection.",
+        token_count=120,
+        best_child_rank=1,
+        matched_children=[],
+    )
+    payload = AssembledContextPayload(
+        total_tokens=120,
+        max_tokens_budget=4000,
+        selected_parent_count=1,
+        omitted_parent_count=0,
+        assembled_context_text="[Source 1] content...",
+        context_blocks=[block1],
+        provenance_map={},
+    )
+    session.last_context_payload = payload
+    session.last_query = "What are agentic components?"
+
+    dev_session.last_context_payload = payload
+    dev_session.last_query = "What are agentic components?"
+
+    # Test /sources (list in chat)
+    assert session.handle_slash_command("/sources") is True
+
+    # Test /source 1 in dev shell
+    assert dev_session.dispatch("/source 1") is True
+    assert dev_session.dispatch("source 1") is True
+    assert dev_session.dispatch("/source 99") is True
+
+
+def test_dev_shell_operations() -> None:
+    """Verifies dev shell executes doctor, stats, reindex, and ingest commands."""
+    from ragnarok.cli.dev_shell import DevShellSession
+
+    dev_session = DevShellSession()
+    with (
+        patch("ragnarok.cli.main.doctor_command") as mock_doc,
+        patch("ragnarok.cli.main.stats_command") as mock_stats,
+        patch("ragnarok.cli.main.reindex_command") as mock_rx,
+        patch("ragnarok.cli.main.ingest_command") as mock_in,
+    ):
+        assert dev_session.dispatch("doctor") is True
+        assert dev_session.dispatch("stats") is True
+        assert dev_session.dispatch("reindex") is True
+        assert dev_session.dispatch("rx") is True
+        assert dev_session.dispatch("ingest docs/") is True
+
+        assert mock_doc.called
+        assert mock_stats.called
+        assert mock_rx.called
+        assert mock_in.called
+
+
+def test_dev_shell_query_execution() -> None:
+    """Verifies dev shell query command executes search with flags."""
+    from ragnarok.cli.dev_shell import DevShellSession
+
+    dev_session = DevShellSession()
+    with patch("ragnarok.cli.main.query_command") as mock_query:
+        assert dev_session.dispatch('query "test question" --waterfall --provenance --strategy hybrid --budget 2000') is True
+        assert mock_query.called
+        assert mock_query.call_args.kwargs["text"] == "test question"
+        assert mock_query.call_args.kwargs["strategy"] == "hybrid"
+        assert mock_query.call_args.kwargs["budget"] == 2000
+        assert mock_query.call_args.kwargs["show_waterfall"] is True
+        assert mock_query.call_args.kwargs["show_provenance"] is True
+

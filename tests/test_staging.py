@@ -117,7 +117,7 @@ def test_staging_service_unique_onboarding(
     assert job.document_id == doc.document_id
     assert job.error_message is None
 
-    # Verify PostgreSQL persistence
+    # Verify DuckDB persistence
     db_doc = repo.get_document(doc.document_id)
     assert db_doc is not None
     assert db_doc.checksum == doc.checksum

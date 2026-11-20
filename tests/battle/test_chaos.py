@@ -2,7 +2,7 @@
 Enterprise Battle-Testing Suite — Dimension 1: Chaos Engineering & Fault Injection.
 
 Verifies:
-1. Mid-Transaction PostgreSQL Disconnection: clean rollback, zero orphaned chunks, job status 'failed'.
+1. Mid-Transaction DuckDB Disconnection: clean rollback, zero orphaned chunks, job status 'failed'.
 2. Interrupted Index Disk Writes: atomic write safety, previous index snapshot preservation.
 3. Mid-Stream LLM Provider Outage: fallback chain activation, resilient failure handling.
 4. Unhandled Parser Crash Recovery: raw file intact in data/raw/, job marked failed with traceback.

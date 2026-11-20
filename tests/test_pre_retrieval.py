@@ -5,7 +5,7 @@ Verifies:
 - Self-RAG Decision Gate separating general knowledge from corpus-specific technical queries.
 - Query Rewriter producing a single clarified query while preserving exact technical symbols and identifiers.
 - Adaptive Retrieval Router performing deterministic signal analysis to select Lexical, Dense, or Hybrid strategies.
-- Metadata Filtering Engine extracting explicit constraints and generating valid TurboVec integer allowlists from PostgreSQL.
+- Metadata Filtering Engine extracting explicit constraints and generating valid TurboVec integer allowlists from DuckDB.
 - Immediate empty candidate sets when zero chunks match metadata constraints.
 """
 
@@ -296,11 +296,11 @@ def test_metadata_constraint_extraction() -> None:
     assert not c_none.has_constraints
 
 
-def test_metadata_filter_engine_postgresql_allowlist_generation(
+def test_metadata_filter_engine_allowlist_generation(
     repo: RelationalRepository,
 ) -> None:
     """
-    Verifies that MetadataFilterEngine queries PostgreSQL for matching chunk records,
+    Verifies that MetadataFilterEngine queries DuckDB for matching chunk records,
     translates them into TurboVec 64-bit integer allowlists, and returns empty allowlist
     when zero records match.
     """
