@@ -1,0 +1,409 @@
+==============================================================================
+MATHEMATICS IN PYTHON
+==============================================================================
+Numerical Methods, Statistics, Linear Algebra, and Symbolic Computation
+
+PURPOSE
+This document is a structured sample text corpus for reading, parsing, indexing,
+retrieval, and question-answering experiments. Headings are intentionally explicit.
+
+TABLE OF CONTENTS
+1. Mathematical Computing Overview
+2. Arithmetic and Number Representation
+3. The math Module
+4. NumPy Arrays and Vectorization
+5. Algebra and Equations
+6. Functions and Graphs
+7. Calculus and Numerical Differentiation
+8. Integration
+9. Linear Algebra
+10. Probability and Random Variables
+11. Descriptive Statistics
+12. Optimization
+13. Numerical Stability and Error
+14. Reproducible Mathematical Experiments
+15. Worked Problem Strategy
+
+DOCUMENT CONTENT
+
+------------------------------------------------------------------------------
+1. Mathematical Computing Overview
+------------------------------------------------------------------------------
+
+Python supports basic arithmetic directly and more advanced mathematics through libraries.
+
+The built-in numeric types include int, float, and complex.
+
+The math module provides common real-valued mathematical functions.
+
+NumPy supplies efficient arrays and vectorized numerical operations.
+
+SciPy provides algorithms for optimization, integration, statistics, and scientific computing.
+
+SymPy represents mathematical expressions symbolically.
+
+Use the simplest suitable tool for the mathematical problem.
+
+Distinguish exact arithmetic from approximate floating-point computation.
+
+State assumptions about units, domains, and valid input values.
+
+Validate numerical results with independent checks where possible.
+
+
+------------------------------------------------------------------------------
+2. Arithmetic and Number Representation
+------------------------------------------------------------------------------
+
+Addition, subtraction, multiplication, and exponentiation are built into Python.
+
+Integer arithmetic is exact within available memory.
+
+Floating-point values use finite binary precision.
+
+Some decimal fractions cannot be represented exactly as binary floating-point values.
+
+Use math.isclose when approximate numerical equality is appropriate.
+
+Use decimal.Decimal for decimal arithmetic that requires controlled decimal rounding.
+
+Use fractions.Fraction when exact rational arithmetic is useful.
+
+Complex numbers use real and imaginary components.
+
+Use abs(z) to compute the magnitude of a real or complex number.
+
+Do not assume a displayed decimal representation is the exact stored value.
+
+
+------------------------------------------------------------------------------
+3. The math Module
+------------------------------------------------------------------------------
+
+Import standard functions with import math.
+
+math.sqrt computes a square root for non-negative real inputs.
+
+math.ceil rounds upward to the nearest integer.
+
+math.floor rounds downward to the nearest integer.
+
+math.factorial computes factorials for non-negative integers.
+
+math.gcd finds the greatest common divisor of integer arguments.
+
+math.log computes logarithms and can accept a base.
+
+math.exp computes the exponential function.
+
+math.sin, math.cos, and math.tan use angles measured in radians.
+
+Use math.pi and math.e instead of manually typing approximate constants.
+
+
+------------------------------------------------------------------------------
+4. NumPy Arrays and Vectorization
+------------------------------------------------------------------------------
+
+NumPy arrays store elements in a homogeneous, efficient representation.
+
+Create arrays with numpy.array and ranges with numpy.arange or numpy.linspace.
+
+An array's shape describes the size of each dimension.
+
+The dtype property describes the element data type.
+
+Vectorized operations apply calculations across array elements.
+
+Broadcasting allows compatible shapes to participate in operations.
+
+Use explicit shape checks to avoid accidental dimension mismatches.
+
+Indexing and slicing can produce views that share underlying data.
+
+Use copy when independent storage is required.
+
+Vectorization often reduces Python-level loop overhead for numerical workloads.
+
+
+------------------------------------------------------------------------------
+5. Algebra and Equations
+------------------------------------------------------------------------------
+
+An algebraic expression combines variables, constants, and operators.
+
+SymPy can represent symbols and manipulate expressions exactly.
+
+Use symbols to declare symbolic variables.
+
+Use expand to distribute products over sums.
+
+Use factor to express an expression as a product when possible.
+
+Use simplify to attempt algebraic simplification.
+
+Use solve to find solutions to supported equations.
+
+Numerical solvers may be necessary for equations without convenient closed forms.
+
+Check whether a proposed solution satisfies the original equation.
+
+Record domain restrictions introduced by division, roots, or logarithms.
+
+
+------------------------------------------------------------------------------
+6. Functions and Graphs
+------------------------------------------------------------------------------
+
+A mathematical function maps inputs from a domain to outputs in a codomain.
+
+Define a Python function when the relationship is expressed procedurally.
+
+Use numpy.linspace to sample an interval at evenly spaced points.
+
+Evaluate vectorized functions over arrays of input values.
+
+Matplotlib can plot sampled functions and label axes.
+
+Include units and a descriptive title when plotting real measurements.
+
+Discontinuities may be hidden when sampling is too sparse.
+
+Choose the sampling resolution based on the function's behavior.
+
+Use logarithmic axes when values span several orders of magnitude.
+
+Do not interpret a sampled graph as proof of behavior between sample points.
+
+
+------------------------------------------------------------------------------
+7. Calculus and Numerical Differentiation
+------------------------------------------------------------------------------
+
+The derivative measures the local rate of change of a function.
+
+SymPy can compute symbolic derivatives with diff.
+
+A finite difference approximates a derivative using nearby function values.
+
+Forward, backward, and central differences use different sample arrangements.
+
+Central differences often have better error properties for smooth functions.
+
+Very small step sizes can amplify floating-point cancellation error.
+
+Numerical differentiation is sensitive to noise in measured data.
+
+Compare numerical derivatives with analytic derivatives when available.
+
+Partial derivatives describe change with respect to one variable at a time.
+
+Use gradient-based methods only when their smoothness assumptions are reasonable.
+
+
+------------------------------------------------------------------------------
+8. Integration
+------------------------------------------------------------------------------
+
+Definite integration accumulates a function over an interval.
+
+SymPy can evaluate many symbolic integrals.
+
+Numerical quadrature approximates an integral using sampled function values.
+
+SciPy provides numerical integration tools such as scipy.integrate.quad.
+
+Integration error depends on the function and the chosen numerical method.
+
+Improper integrals require special attention to endpoints and convergence.
+
+Check units: integrating a rate over time produces an accumulated quantity.
+
+Compare numerical and analytic results for simple test cases.
+
+Highly oscillatory or discontinuous functions may require specialized methods.
+
+Report tolerances when the precision of a numerical integral matters.
+
+
+------------------------------------------------------------------------------
+9. Linear Algebra
+------------------------------------------------------------------------------
+
+A vector is an ordered collection of numeric components.
+
+A matrix is a rectangular array of values.
+
+NumPy represents vectors and matrices with multidimensional arrays.
+
+The dot product combines corresponding components and sums the products.
+
+Matrix multiplication uses the @ operator for compatible arrays.
+
+The transpose swaps row and column axes for a two-dimensional matrix.
+
+Linear systems can be written as A x = b.
+
+Use numpy.linalg.solve for suitable square, nonsingular systems.
+
+Computing an explicit inverse is often unnecessary for solving a linear system.
+
+Condition numbers help describe sensitivity to small input perturbations.
+
+
+------------------------------------------------------------------------------
+10. Probability and Random Variables
+------------------------------------------------------------------------------
+
+Probability quantifies uncertainty using values between zero and one.
+
+A random variable maps outcomes to numerical values.
+
+Discrete distributions assign probabilities to distinct outcomes.
+
+Continuous distributions describe probability through density functions.
+
+Use numpy.random.default_rng to create a modern random number generator.
+
+Set a seed when reproducible random experiments are required.
+
+Uniform distributions assign equal density across a specified interval.
+
+Normal distributions are characterized by a mean and standard deviation.
+
+Sampling variability means repeated experiments need not produce identical results.
+
+Distinguish theoretical probabilities from frequencies observed in finite samples.
+
+
+------------------------------------------------------------------------------
+11. Descriptive Statistics
+------------------------------------------------------------------------------
+
+The mean is the sum of values divided by their count.
+
+The median is the middle value after sorting, with a convention for even counts.
+
+The mode is a value that occurs most frequently.
+
+Variance measures squared dispersion around the mean.
+
+Standard deviation is the square root of variance.
+
+Quantiles divide ordered observations into portions.
+
+Outliers can strongly affect the mean and variance.
+
+The median and interquartile range can be more robust for skewed data.
+
+Missing values must be handled deliberately before calculating summaries.
+
+Always state the sample size alongside important descriptive statistics.
+
+
+------------------------------------------------------------------------------
+12. Optimization
+------------------------------------------------------------------------------
+
+Optimization seeks inputs that minimize or maximize an objective function.
+
+Constraints restrict which candidate solutions are allowed.
+
+Convex problems have useful global-optimum guarantees under appropriate conditions.
+
+Non-convex objectives may contain local optima and saddle points.
+
+SciPy provides general-purpose optimization routines.
+
+Scale variables when their magnitudes differ greatly.
+
+Choose starting points thoughtfully for iterative algorithms.
+
+Inspect convergence status instead of assuming a solver succeeded.
+
+Validate the returned solution against constraints and objective values.
+
+Compare with a simple baseline or alternative starting points when appropriate.
+
+
+------------------------------------------------------------------------------
+13. Numerical Stability and Error
+------------------------------------------------------------------------------
+
+Round-off error arises from finite numeric precision.
+
+Truncation error arises when an exact process is approximated.
+
+Ill-conditioned problems can amplify small perturbations in the input.
+
+Stable algorithms limit unnecessary amplification of numerical error.
+
+Subtracting nearly equal numbers can cause catastrophic cancellation.
+
+Use tolerances that match the problem's scale and practical requirements.
+
+Avoid arbitrary rounding during intermediate calculations unless required.
+
+Test extreme values and boundary cases.
+
+Check for NaN and infinity when operations can produce invalid results.
+
+Explain the precision limitations of a result when they affect interpretation.
+
+
+------------------------------------------------------------------------------
+14. Reproducible Mathematical Experiments
+------------------------------------------------------------------------------
+
+Keep input data and parameter settings with the experiment.
+
+Use a fixed random seed when exact repeatability is needed.
+
+Record library versions for numerical results that may depend on implementation.
+
+Separate data preparation, computation, and visualization.
+
+Write small tests for formulas with known answers.
+
+Use property-based checks for general mathematical invariants where suitable.
+
+Benchmark performance with representative input sizes.
+
+Do not confuse speed with numerical accuracy.
+
+Store results at sufficient precision for later analysis.
+
+Document assumptions so another person can reproduce the calculation.
+
+
+------------------------------------------------------------------------------
+15. Worked Problem Strategy
+------------------------------------------------------------------------------
+
+Start by translating the mathematical question into a precise statement.
+
+Identify known quantities, unknowns, constraints, and units.
+
+Select a method that fits the problem's structure.
+
+Implement the method using clear variable names.
+
+Test the implementation on a small case whose answer is known.
+
+Evaluate edge cases such as zero, negative values, and empty inputs.
+
+Compare against a second method if the result is important.
+
+Visualize behavior when a graph reveals errors more clearly than a scalar result.
+
+Report the result with suitable units and precision.
+
+Explain both the result and the assumptions under which it is valid.
+
+
+GLOSSARY AND REVIEW
+Use this section as a reminder to verify definitions and assumptions in context.
+Examples and recommendations are introductory; consult official documentation
+and domain-specific references before using techniques in high-stakes settings.
+
+END OF DOCUMENT

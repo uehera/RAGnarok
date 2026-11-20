@@ -1,0 +1,435 @@
+==============================================================================
+DATA SCIENCE IN PYTHON
+==============================================================================
+A Workflow for Data Acquisition, Cleaning, Analysis, Visualization, and Communication
+
+PURPOSE
+This document is a structured sample text corpus for reading, parsing, indexing,
+retrieval, and question-answering experiments. Headings are intentionally explicit.
+
+TABLE OF CONTENTS
+1. What Data Science Covers
+2. Framing an Analytical Question
+3. Data Sources and Acquisition
+4. Loading Data with pandas
+5. Data Quality Assessment
+6. Missing Values
+7. Data Transformation
+8. Combining and Reshaping Data
+9. Exploratory Data Analysis
+10. Statistical Reasoning
+11. Visualization Principles
+12. Time Series Analysis
+13. SQL and Analytical Databases
+14. Reproducible Workflows
+15. Communicating Findings
+16. Example Analysis Checklist
+
+DOCUMENT CONTENT
+
+------------------------------------------------------------------------------
+1. What Data Science Covers
+------------------------------------------------------------------------------
+
+Data science combines domain knowledge, statistics, programming, and communication.
+
+It transforms raw observations into evidence that supports decisions.
+
+Typical tasks include data collection, cleaning, exploration, modeling, and reporting.
+
+Python offers a broad ecosystem for these activities.
+
+pandas is widely used for tabular data.
+
+NumPy supports numerical computation.
+
+Matplotlib and Seaborn support visualization.
+
+SQL is essential when data lives in relational databases.
+
+Reproducibility and data provenance are core parts of reliable analysis.
+
+A technically correct analysis can still fail if the question is poorly defined.
+
+
+------------------------------------------------------------------------------
+2. Framing an Analytical Question
+------------------------------------------------------------------------------
+
+Start with a decision or question that the analysis should support.
+
+Translate broad requests into measurable outcomes.
+
+Define the population, time period, unit of analysis, and comparison groups.
+
+Clarify what evidence would change the decision.
+
+Separate descriptive, diagnostic, predictive, and prescriptive questions.
+
+Descriptive analysis asks what happened.
+
+Diagnostic analysis investigates why a pattern may have occurred.
+
+Predictive analysis estimates what may happen next.
+
+Prescriptive analysis compares possible actions under stated assumptions.
+
+Agree on definitions before calculating headline metrics.
+
+
+------------------------------------------------------------------------------
+3. Data Sources and Acquisition
+------------------------------------------------------------------------------
+
+Data may come from CSV files, spreadsheets, APIs, databases, logs, or sensors.
+
+Use official APIs when available instead of scraping unstable page structures.
+
+Check access permissions and terms before collecting data.
+
+Use SQL to select only required columns and rows from large databases.
+
+Store raw source data separately from cleaned analytical outputs.
+
+Record extraction timestamps and source identifiers.
+
+Validate file encoding, delimiters, and schema assumptions.
+
+Handle pagination, rate limits, and transient API errors explicitly.
+
+Do not expose credentials in source code or notebooks.
+
+Preserve enough metadata to reproduce how the dataset was obtained.
+
+
+------------------------------------------------------------------------------
+4. Loading Data with pandas
+------------------------------------------------------------------------------
+
+Use pandas.read_csv to load comma-separated data.
+
+Use pandas.read_excel for supported spreadsheet formats.
+
+Use pandas.read_json for suitable JSON structures.
+
+Use pandas.read_parquet for Parquet files.
+
+Inspect shape, columns, dtypes, and sample rows after loading.
+
+Specify date parsing carefully rather than assuming every date is unambiguous.
+
+Large files may require selected columns, chunks, or a different storage format.
+
+Check whether identifiers were incorrectly interpreted as numeric values.
+
+Inspect categorical columns for unexpected spellings and whitespace.
+
+Confirm row counts against source-system expectations.
+
+
+------------------------------------------------------------------------------
+5. Data Quality Assessment
+------------------------------------------------------------------------------
+
+Missingness should be measured by column and, when useful, by row.
+
+Duplicate rows can inflate counts and distort analysis.
+
+Range checks identify impossible or implausible values.
+
+Uniqueness checks help validate identifiers and key assumptions.
+
+Referential integrity checks identify records with missing related entities.
+
+Standardize category labels only when the values truly mean the same thing.
+
+Outliers may be errors, rare valid cases, or meaningful events.
+
+Do not delete inconvenient observations without a defensible rule.
+
+Keep a record of cleaning decisions and their impact.
+
+Re-run data quality checks after each major transformation.
+
+
+------------------------------------------------------------------------------
+6. Missing Values
+------------------------------------------------------------------------------
+
+Missing values may represent non-response, unavailable measurements, or inapplicable fields.
+
+Measure missingness before choosing a treatment.
+
+Rows can be dropped only when the resulting selection effects are understood.
+
+Numeric values may be imputed using a mean, median, or domain-specific method.
+
+Categorical values may use an explicit unknown category where appropriate.
+
+Missingness indicators can preserve information about whether a value was absent.
+
+Time series may need domain-aware forward filling or interpolation.
+
+Never use future information to fill historical data in forecasting tasks.
+
+Fit learned imputation rules on training data when building predictive models.
+
+Document how missing values affect sample size and conclusions.
+
+
+------------------------------------------------------------------------------
+7. Data Transformation
+------------------------------------------------------------------------------
+
+Use vectorized pandas operations instead of slow row-by-row Python loops where practical.
+
+Create derived columns when they represent meaningful business or scientific concepts.
+
+Use assign for readable chains of column transformations.
+
+Use astype to convert a column when the conversion is valid.
+
+Parse timestamps and set time zones explicitly.
+
+Normalize units before combining measurements from different sources.
+
+Use string methods for consistent text cleaning.
+
+Use category types when repeated labels make them appropriate.
+
+Prefer explicit transformations over hidden side effects.
+
+Verify that transformations preserve intended row counts and keys.
+
+
+------------------------------------------------------------------------------
+8. Combining and Reshaping Data
+------------------------------------------------------------------------------
+
+merge joins tables using matching key columns.
+
+Validate join cardinality when one-to-one or many-to-one relationships are expected.
+
+Unexpected many-to-many joins can multiply rows dramatically.
+
+concat combines objects along an axis.
+
+groupby supports summaries by one or more grouping variables.
+
+pivot reshapes data when index and column combinations are unique.
+
+pivot_table aggregates values when repeated combinations exist.
+
+melt converts wide-form tables into long-form tables.
+
+Check totals before and after reshaping to catch accidental data loss.
+
+Use clear names for keys and measures in analytical tables.
+
+
+------------------------------------------------------------------------------
+9. Exploratory Data Analysis
+------------------------------------------------------------------------------
+
+Begin with row counts, summary statistics, and missingness profiles.
+
+Examine distributions before choosing summary measures.
+
+Compare groups using both numerical summaries and visualizations.
+
+Investigate relationships among variables without assuming causality.
+
+Use scatter plots for relationships between two numeric variables.
+
+Use histograms or density plots to inspect distributions.
+
+Use box plots to compare spread and identify unusual observations.
+
+Segment analyses by time, geography, product, or another relevant dimension.
+
+Check whether a few extreme values dominate an aggregate.
+
+Write down hypotheses and unexpected findings as exploration proceeds.
+
+
+------------------------------------------------------------------------------
+10. Statistical Reasoning
+------------------------------------------------------------------------------
+
+A population is the full group of interest; a sample is the observed subset.
+
+Sampling design affects how well results generalize to the population.
+
+An estimator uses sample data to estimate an unknown quantity.
+
+Confidence intervals describe uncertainty under a specified procedure and assumptions.
+
+A p-value is not the probability that a hypothesis is true.
+
+Statistical significance does not necessarily imply practical importance.
+
+Multiple comparisons increase the chance of false-positive findings.
+
+Effect sizes help communicate the magnitude of observed differences.
+
+Confounding can create misleading associations between variables.
+
+Distinguish observational evidence from randomized experimental evidence.
+
+
+------------------------------------------------------------------------------
+11. Visualization Principles
+------------------------------------------------------------------------------
+
+Choose a chart type that matches the question and data structure.
+
+Line charts are useful for ordered time series.
+
+Bar charts compare values across categories.
+
+Scatter plots show relationships between numeric variables.
+
+Histograms show distributions of numeric observations.
+
+Label axes with units and use a descriptive title.
+
+Use color consistently and avoid relying on color alone to encode meaning.
+
+Truncated axes can exaggerate small differences in bar charts.
+
+Reduce decorative clutter that distracts from the analytical message.
+
+Provide accessible labels and context for readers who cannot inspect the plot closely.
+
+
+------------------------------------------------------------------------------
+12. Time Series Analysis
+------------------------------------------------------------------------------
+
+Parse timestamps into a consistent datetime representation.
+
+Sort observations by time before calculating lags or rolling windows.
+
+Check for missing periods and irregular sampling.
+
+Resampling aggregates observations into a chosen time frequency.
+
+Rolling windows summarize recent observations over a moving interval.
+
+Lag features use previous observations and must be aligned carefully.
+
+Seasonality describes recurring patterns at known intervals.
+
+Trend describes longer-term movement in a series.
+
+Use time-based validation for forecasting problems.
+
+Ensure that every feature would have been available at the forecast origin.
+
+
+------------------------------------------------------------------------------
+13. SQL and Analytical Databases
+------------------------------------------------------------------------------
+
+Relational databases store data in tables with defined relationships.
+
+SELECT chooses columns or expressions to return.
+
+WHERE filters rows before aggregation.
+
+GROUP BY creates groups for aggregate calculations.
+
+HAVING filters groups after aggregation.
+
+JOIN combines rows from related tables.
+
+Window functions calculate values across related rows without collapsing each group.
+
+Indexes can improve selected query patterns but add write and storage costs.
+
+Use query plans to investigate slow analytical queries.
+
+Parameterize values in application queries rather than building SQL through string concatenation.
+
+
+------------------------------------------------------------------------------
+14. Reproducible Workflows
+------------------------------------------------------------------------------
+
+Keep source data, intermediate outputs, and final reports logically separate.
+
+Use version control for code, configuration, and documentation.
+
+Do not commit secrets or restricted raw datasets to a public repository.
+
+Record package versions and execution parameters.
+
+Prefer scripts or notebooks that can be rerun from a clean environment.
+
+Seed random operations when repeatable results are required.
+
+Add assertions for critical assumptions and expected row counts.
+
+Use tests for reusable transformation functions.
+
+Automate repeated checks where the workflow is stable.
+
+Document known limitations and steps needed to reproduce the result.
+
+
+------------------------------------------------------------------------------
+15. Communicating Findings
+------------------------------------------------------------------------------
+
+Lead with the decision-relevant finding rather than a list of technical steps.
+
+Separate observed facts from interpretations and recommendations.
+
+Show the denominator and time period behind important percentages.
+
+Explain uncertainty, data limitations, and alternative explanations.
+
+Use a chart only when it helps the audience understand the result.
+
+Translate technical metrics into practical implications.
+
+State what the analysis cannot establish.
+
+Make recommendations proportional to the strength of the evidence.
+
+Include a concise methods note for reproducibility.
+
+End with clear next steps, owners, or questions for further investigation.
+
+
+------------------------------------------------------------------------------
+16. Example Analysis Checklist
+------------------------------------------------------------------------------
+
+Define the question and intended decision.
+
+Identify the data source, unit of analysis, and time window.
+
+Load the data and inspect its schema.
+
+Profile missing values, duplicates, invalid ranges, and key uniqueness.
+
+Clean and transform data using documented rules.
+
+Validate joins and confirm expected row counts.
+
+Perform exploratory analysis and create relevant visualizations.
+
+Use statistical methods that fit the sampling design and question.
+
+Check whether the result is robust to reasonable alternative choices.
+
+Communicate the finding, uncertainty, limitations, and recommended action.
+
+
+GLOSSARY AND REVIEW
+Use this section as a reminder to verify definitions and assumptions in context.
+Examples and recommendations are introductory; consult official documentation
+and domain-specific references before using techniques in high-stakes settings.
+
+END OF DOCUMENT

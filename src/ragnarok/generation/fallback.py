@@ -50,6 +50,9 @@ class DefaultLiteLLMStreamingClient:
     ) -> AsyncIterator[str]:
         import litellm
 
+        litellm.suppress_debug_info = True
+        litellm.set_verbose = False
+
         response = await litellm.acompletion(
             model=model,
             messages=messages,

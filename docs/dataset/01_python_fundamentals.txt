@@ -1,0 +1,405 @@
+==============================================================================
+PYTHON FUNDAMENTALS
+==============================================================================
+A Structured Introduction to the Python Programming Language
+
+PURPOSE
+This document is a structured sample text corpus for reading, parsing, indexing,
+retrieval, and question-answering experiments. Headings are intentionally explicit.
+
+TABLE OF CONTENTS
+1. Overview of Python
+2. Installing and Running Python
+3. Variables and Naming
+4. Core Data Types
+5. Operators and Expressions
+6. Strings and Text Processing
+7. Conditions and Branching
+8. Loops and Iteration
+9. Functions
+10. Collections and Comprehensions
+11. Files and Exceptions
+12. Modules, Packages, and Testing
+13. Object-Oriented Programming
+14. Type Hints and Code Quality
+15. Practical Example and Review
+
+DOCUMENT CONTENT
+
+------------------------------------------------------------------------------
+1. Overview of Python
+------------------------------------------------------------------------------
+
+Python is a high-level, general-purpose programming language known for readable syntax.
+
+It supports procedural, object-oriented, and functional programming styles.
+
+Python source code is commonly stored in files ending with the .py extension.
+
+The Python interpreter executes source code and reports syntax or runtime errors.
+
+Python is widely used in automation, web services, scientific computing, and AI.
+
+Readability is a design goal, so indentation has syntactic meaning.
+
+Python is dynamically typed: names refer to objects whose types are determined at runtime.
+
+Python is strongly typed: incompatible operations generally require explicit conversion.
+
+
+------------------------------------------------------------------------------
+2. Installing and Running Python
+------------------------------------------------------------------------------
+
+Install a supported Python release from the official Python distribution or an approved package manager.
+
+Check the installation with the command: python --version.
+
+On some Linux systems, the command is python3 rather than python.
+
+Run a script with: python script.py.
+
+Start an interactive session by running python without a script argument.
+
+Use a virtual environment to isolate dependencies for each project.
+
+Create an environment with: python -m venv .venv.
+
+Activate the environment using the command appropriate for the operating system.
+
+Install a package with: python -m pip install package-name.
+
+Record project dependencies so another developer can reproduce the environment.
+
+
+------------------------------------------------------------------------------
+3. Variables and Naming
+------------------------------------------------------------------------------
+
+A variable name is a reference to an object, not a box with a permanently fixed type.
+
+Use descriptive names such as customer_count instead of vague names such as x.
+
+Python identifiers are case-sensitive: total and Total are different names.
+
+Names may contain letters, digits, and underscores, but cannot begin with a digit.
+
+Use snake_case for variables and functions in conventional Python style.
+
+Use uppercase names for constants intended not to change during normal execution.
+
+Assignment uses the equals sign: count = 3.
+
+Multiple assignment can unpack values: width, height = 10, 20.
+
+Assignment does not automatically copy mutable objects.
+
+Choose names that describe meaning rather than implementation details.
+
+
+------------------------------------------------------------------------------
+4. Core Data Types
+------------------------------------------------------------------------------
+
+int represents integers, such as 0, 42, and -7.
+
+float represents floating-point values, such as 3.14 and -0.5.
+
+str represents Unicode text enclosed in quotes.
+
+bool represents True or False.
+
+None represents the absence of a value.
+
+list stores an ordered, mutable collection of items.
+
+tuple stores an ordered collection that cannot be structurally changed after creation.
+
+dict maps keys to values.
+
+set stores unique elements and supports set operations.
+
+Use type(value) for inspection and isinstance(value, SomeType) for type checks.
+
+
+------------------------------------------------------------------------------
+5. Operators and Expressions
+------------------------------------------------------------------------------
+
+Arithmetic operators include +, -, *, /, //, %, and **.
+
+The slash operator performs true division and returns a floating-point result.
+
+Floor division uses // and rounds toward negative infinity.
+
+The modulo operator returns the remainder associated with division.
+
+Comparison operators include ==, !=, <, <=, >, and >=.
+
+Logical operators are and, or, and not.
+
+The in operator checks membership in a container.
+
+Use parentheses when they make a complicated expression easier to read.
+
+Operator precedence determines evaluation order when parentheses are absent.
+
+Do not compare floating-point calculations for exact equality when rounding error matters.
+
+
+------------------------------------------------------------------------------
+6. Strings and Text Processing
+------------------------------------------------------------------------------
+
+Strings are immutable sequences of Unicode code points.
+
+Access a character by index: language[0].
+
+Slice a string with start-inclusive and end-exclusive boundaries.
+
+Use f-strings for readable interpolation, such as f'Hello, {name}'.
+
+Useful methods include strip, split, join, replace, lower, and startswith.
+
+Use split to turn delimited text into a list of pieces.
+
+Use join to combine strings with a chosen separator.
+
+Normalize and validate input before relying on its format.
+
+Escape special characters when they have meaning inside string literals.
+
+Use pathlib or dedicated parsing tools for structured files rather than fragile string slicing.
+
+
+------------------------------------------------------------------------------
+7. Conditions and Branching
+------------------------------------------------------------------------------
+
+An if statement runs a block when its condition is truthy.
+
+Use elif to test another condition when earlier conditions were false.
+
+Use else for the remaining case.
+
+Indentation identifies the body of each conditional block.
+
+Empty containers, zero, None, and False are falsy in Boolean contexts.
+
+Most non-empty strings and collections are truthy.
+
+Prefer explicit conditions when truthiness might confuse readers.
+
+Use guard clauses to handle invalid or exceptional cases early.
+
+Avoid deeply nested conditionals when simpler logic is possible.
+
+Test boundary conditions, including empty values and exact thresholds.
+
+
+------------------------------------------------------------------------------
+8. Loops and Iteration
+------------------------------------------------------------------------------
+
+A for loop iterates over items supplied by an iterable.
+
+Use range(stop) to generate integer values from zero up to stop minus one.
+
+Use enumerate(items) when both an index and an item are needed.
+
+Use zip to iterate over multiple iterables in parallel.
+
+A while loop repeats while its condition remains true.
+
+break exits the nearest loop.
+
+continue skips the rest of the current iteration.
+
+Loop over dictionary items with mapping.items() when keys and values are both needed.
+
+Prefer direct iteration over manually maintaining an index when possible.
+
+Ensure while-loop state changes so the loop can eventually terminate.
+
+
+------------------------------------------------------------------------------
+9. Functions
+------------------------------------------------------------------------------
+
+Define a function with def followed by a name and parameter list.
+
+Return a result with the return statement.
+
+A function without an explicit return value returns None.
+
+Use docstrings to explain a function's purpose, parameters, and return value.
+
+Default parameter values are evaluated when the function is defined.
+
+A mutable default such as [] can be shared between calls and is usually a mistake.
+
+Use None as a default and create a new mutable object inside the function when needed.
+
+Keyword arguments improve readability for functions with several parameters.
+
+Type hints communicate expected input and output types to readers and tools.
+
+Keep functions focused on one coherent responsibility.
+
+
+------------------------------------------------------------------------------
+10. Collections and Comprehensions
+------------------------------------------------------------------------------
+
+Lists preserve order and can contain duplicate values.
+
+Tuples are useful for fixed groups of related values.
+
+Dictionaries provide efficient key-based lookup in typical use cases.
+
+Sets are useful for removing duplicates and testing membership.
+
+List comprehensions create lists from iterable expressions.
+
+Dictionary comprehensions create mappings from iterable data.
+
+Set comprehensions create unique values.
+
+Generator expressions produce values lazily instead of building a full list immediately.
+
+Choose comprehensions when they remain simple and readable.
+
+Use ordinary loops for complex transformations with multiple steps or error handling.
+
+
+------------------------------------------------------------------------------
+11. Files and Exceptions
+------------------------------------------------------------------------------
+
+Use pathlib.Path to represent filesystem paths in a portable way.
+
+Open text files with an explicit encoding such as UTF-8.
+
+Use a with statement so files are closed reliably.
+
+Choose read_text, write_text, or open based on the task and file size.
+
+Catch specific exceptions rather than using a blanket except clause.
+
+FileNotFoundError indicates that a requested path could not be found.
+
+PermissionError indicates that the process lacks required access.
+
+Validate paths and handle expected filesystem failures clearly.
+
+Do not silently discard errors that affect data correctness.
+
+Use logging for diagnostic information in long-running applications.
+
+
+------------------------------------------------------------------------------
+12. Modules, Packages, and Testing
+------------------------------------------------------------------------------
+
+A module is commonly a single Python file that can be imported.
+
+A package groups related modules under a package namespace.
+
+Keep executable entry points separate from reusable business logic.
+
+Use if __name__ == '__main__' to guard code intended for direct execution.
+
+Imports should be explicit and organized consistently.
+
+Unit tests verify small pieces of behavior in isolation.
+
+pytest is a widely used third-party testing framework.
+
+Test normal cases, edge cases, and expected failures.
+
+Use fixtures to share repeatable test setup.
+
+Automated tests reduce the risk of regressions during refactoring.
+
+
+------------------------------------------------------------------------------
+13. Object-Oriented Programming
+------------------------------------------------------------------------------
+
+A class defines a type with data and behavior.
+
+An instance is an object created from a class.
+
+The __init__ method initializes a new instance.
+
+self refers to the instance on which an instance method is called.
+
+Instance attributes belong to an individual object.
+
+Class attributes are shared through the class unless shadowed on an instance.
+
+Inheritance allows a class to extend or specialize another class.
+
+Composition builds complex behavior by combining objects.
+
+Use dataclasses for classes primarily intended to store structured data.
+
+Prefer simple designs over elaborate class hierarchies without a clear need.
+
+
+------------------------------------------------------------------------------
+14. Type Hints and Code Quality
+------------------------------------------------------------------------------
+
+Type hints describe expected types but do not automatically enforce them at runtime.
+
+Use collections.abc types for general iterable or mapping interfaces where appropriate.
+
+Optional values can be expressed with unions such as str | None in modern Python.
+
+Static type checkers can identify many mistakes before execution.
+
+Ruff can lint Python code and apply supported formatting rules.
+
+Formatting tools reduce stylistic differences across a codebase.
+
+Keep functions small enough to understand and test.
+
+Replace unexplained numeric literals with named constants when their meaning matters.
+
+Document public APIs and non-obvious design decisions.
+
+Review warnings rather than disabling rules without investigation.
+
+
+------------------------------------------------------------------------------
+15. Practical Example and Review
+------------------------------------------------------------------------------
+
+Example: define a function that receives a sequence of numbers and returns their mean.
+
+First, handle an empty sequence explicitly so division by zero is avoided.
+
+Next, compute the sum of the values and divide by the number of values.
+
+Add a type hint describing the accepted numeric sequence.
+
+Write tests for an ordinary list, a tuple, and an empty input.
+
+Consider whether the function should accept integers, floats, or both.
+
+Consider how floating-point precision affects the result.
+
+Run the formatter and linter before committing the implementation.
+
+Review the code for clarity, correctness, and unnecessary complexity.
+
+Key lesson: readable code, explicit contracts, and tests work together.
+
+
+GLOSSARY AND REVIEW
+Use this section as a reminder to verify definitions and assumptions in context.
+Examples and recommendations are introductory; consult official documentation
+and domain-specific references before using techniques in high-stakes settings.
+
+END OF DOCUMENT

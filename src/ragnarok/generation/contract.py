@@ -24,11 +24,11 @@ class CitationFootnote(BaseModel):
 
     citation_index: int = Field(ge=1, description="Inline marker index (1, 2, 3...) matching [X]")
     document_id: UUID | None = Field(
-        default=None, description="Source document identifier in PostgreSQL"
+        default=None, description="Source document identifier in DuckDB"
     )
     filename: str = Field(description="Original source document filename")
     parent_chunk_id: UUID | None = Field(
-        default=None, description="Source parent chunk identifier in PostgreSQL"
+        default=None, description="Source parent chunk identifier in DuckDB"
     )
     heading_path: list[str] = Field(
         default_factory=list, description="Structural heading breadcrumb hierarchy"
@@ -91,6 +91,22 @@ class GenerationResponse(BaseModel):
     token_usage: TokenUsage = Field(
         default_factory=TokenUsage, description="Token usage statistics"
     )
+    output_guard_decision: Any | None = Field(
+        default=None,
+        description="Detailed OutputGuard validation decision and diagnostics",
+    )
+
+    @property
+    def is_grounded(self) -> bool:
+        if self.output_guard_decision is not None and hasattr(self.output_guard_decision, "is_grounded"):
+            return bool(self.output_guard_decision.is_grounded)
+        return True
+
+    @property
+    def secrets_redacted(self) -> list[str]:
+        if self.output_guard_decision is not None and hasattr(self.output_guard_decision, "secrets_detected"):
+            return list(self.output_guard_decision.secrets_detected)
+        return []
 
     def to_provenance_dict(self) -> dict[str, Any]:
         """Serializes generation metadata for diagnostics, logging, and evaluation."""

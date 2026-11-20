@@ -65,6 +65,7 @@ class GenerationService:
         context: str | AssembledContextPayload,
         provenance_map: dict[str, Any] | None = None,
         render_live: bool = False,
+        history: list[dict[str, str]] | None = None,
     ) -> GenerationResponse:
         """Asynchronously executes answer generation and citation resolution."""
         return await self.generator.generate(
@@ -72,6 +73,7 @@ class GenerationService:
             context=context,
             provenance_map=provenance_map,
             render_live=render_live,
+            history=history,
         )
 
     def generate_sync(
@@ -80,6 +82,7 @@ class GenerationService:
         context: str | AssembledContextPayload,
         provenance_map: dict[str, Any] | None = None,
         render_live: bool = False,
+        history: list[dict[str, str]] | None = None,
     ) -> GenerationResponse:
         """Synchronously executes answer generation and citation resolution."""
         return self.generator.generate_sync(
@@ -87,6 +90,7 @@ class GenerationService:
             context=context,
             provenance_map=provenance_map,
             render_live=render_live,
+            history=history,
         )
 
     def format_terminal_output(self, response: GenerationResponse) -> str:
