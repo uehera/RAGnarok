@@ -99,8 +99,10 @@ enable_pii_filter = true
 enable_injection_detection = true
 enable_grounding_check = false
 enable_document_guard = true
-document_injection_action = "sanitize" # "sanitize", "quarantine", or "reject"
+document_injection_action = "quarantine" # "sanitize", "quarantine", or "reject"
 quarantine_directory = "data/quarantine"
+enable_context_screening = true
+context_screening_action = "drop" # "drop", "quarantine", or "sanitize"
 model = "groq/qwen/qwen3.8-27b"
 timeout_seconds = 2.0
 

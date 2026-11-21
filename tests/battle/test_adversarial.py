@@ -154,6 +154,7 @@ def test_adversarial_output_secret_and_pii_redaction() -> None:
         "Connect via postgresql://postgres:SecretPassword123@localhost:5432/ragnarok today.",
         "My contact email is admin@enterprise-security.org for questions.",
         "Internal server IP is 192.168.1.150 on port 8080.",
+        "Direct emergency hotline is +91 - 8310490313 immediately.",
     ]
 
     for original in sensitive_texts:
@@ -163,3 +164,4 @@ def test_adversarial_output_secret_and_pii_redaction() -> None:
         assert "sk-proj-1234567890abcdef1234567890abcdef" not in redacted
         assert "admin@enterprise-security.org" not in redacted
         assert "192.168.1.150" not in redacted
+        assert "+91 - 8310490313" not in redacted

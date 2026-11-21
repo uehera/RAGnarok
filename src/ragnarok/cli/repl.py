@@ -284,12 +284,14 @@ class ReplSession:
             )
 
             # 0. Input Guardrails Check
-            from ragnarok.guardrails import GuardrailsService
+            from ragnarok.guardrails import GuardrailsService, format_guardrail_refusal
 
             guard_service = GuardrailsService.from_config(config=config)
             guard_decision = guard_service.validate_input(query)
             if not guard_decision.is_safe or (config.guardrails.strict_mode and not guard_decision.is_topical):
-                self.console.print(f"\n[bold red]Refusal:[/bold red] {guard_decision.fallback_message}\n")
+                self.console.rule("[bold red]🛡️ Security Firewall: Threat Intercepted[/bold red]")
+                self.console.print(format_guardrail_refusal(guard_decision))
+                self.console.rule("[bold red]────────────────────────────────────────────────────────────────────────[/bold red]")
                 return
 
             # Derive contextualized query for retrieval
@@ -346,9 +348,16 @@ class ReplSession:
 
                 self.console.print(format_footnotes_table(response.citations))
 
+            # Concise Security & Grounding Audit line
+            self.console.print(
+                f"\n[dim]🛡️ Security Audit: Input Gateway [bold green]CLEAN[/bold green] · "
+                f"Stream Sanitizer [bold green]SECURE[/bold green] ({len(response.secrets_redacted)} redacted) · "
+                f"Grounding [bold green]{'VERIFIED' if response.is_grounded else 'UNGROUNDED'}[/bold green] ({len(response.citations)} citations)[/dim]"
+            )
+
             # Clean, minimal 1-line footer
             self.console.print(
-                f"\n[dim]Model: {response.model_used} | "
+                f"[dim]Model: {response.model_used} | "
                 f"TTFT: {response.latency_metrics.ttft_ms:.0f}ms | "
                 f"Total: {response.latency_metrics.total_duration_ms:.0f}ms | "
                 f"Sources: {context_payload.selected_parent_count} "

@@ -49,6 +49,7 @@ class DevShellSession:
         )
         grid.add_row("Core Operations", "ingest <path> (in) | reindex (rx)")
         grid.add_row("Diagnostics", "doctor (doc) | stats (st)")
+        grid.add_row("Web Interface", "ui (serve) [launch interactive web server]")
         grid.add_row("Inspection", "/source <N> (inspect source text)")
         grid.add_row(
             "Retrieval Query",
@@ -135,8 +136,11 @@ class DevShellSession:
             "guard <query>", "Probe", "Test input prompt injection & length filter guards"
         )
         table.add_row("pii <text>", "Probe", "Test secret, email, credential & IP redaction")
+        table.add_row("screening", "Probe", "Test in-flight context screening on adversarial evidence")
         table.add_row("auto", "Test", "Run automated pytest test suite (unit + integration)")
         table.add_row("eval", "Benchmark", "Run DeepEval 20-case Golden Dataset benchmark suite")
+        table.add_row("ragas", "Benchmark", "Run RAGAS 4-metric formal evaluation benchmark suite")
+        table.add_row("ui, serve", "Interface", "Launch interactive Web Interface & FastAPI Server")
         table.add_row("clear, /clear", "Control", "Clear terminal screen")
         table.add_row("help, /help", "Control", "Display developer command reference")
         table.add_row("exit, quit", "Control", "Exit developer workspace")
@@ -333,6 +337,14 @@ class DevShellSession:
 
                 stats_command()
 
+            # Web Interface
+            elif cmd in ("ui", "serve"):
+                from ragnarok.cli.main import ui_command
+
+                with contextlib.suppress(SystemExit, KeyboardInterrupt):
+                    ui_command(host="127.0.0.1", port=8000, reload=False)
+                self.print_banner()
+
             # Source Inspection
             elif cmd in ("/source", "source", "/s", "s"):
                 if not args:
@@ -482,6 +494,20 @@ class DevShellSession:
 
                 with contextlib.suppress(SystemExit):
                     probe_eval()
+
+            # Probes: RAGAS Benchmark
+            elif cmd == "ragas":
+                from ragnarok.cli.probes import probe_ragas
+
+                with contextlib.suppress(SystemExit):
+                    probe_ragas()
+
+            # Probes: In-Flight Context Screening
+            elif cmd in ("screening", "context-screen"):
+                from ragnarok.cli.probes import probe_screening
+
+                with contextlib.suppress(SystemExit):
+                    probe_screening()
 
             else:
                 self.console.print(

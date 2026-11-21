@@ -13,6 +13,7 @@ Verifies:
 
 from __future__ import annotations
 
+from typing import Any
 from pathlib import Path
 from uuid import uuid4
 
@@ -367,3 +368,95 @@ def test_reindex_service_standalone_regeneration(
     dense_res = loaded_dense.search(children[0].content, top_k=1)
     assert len(dense_res) == 1
     assert dense_res[0][0] == children[0].chunk_id
+
+
+def test_incremental_document_reindex(
+    repo: RelationalRepository,
+    tmp_path: Path,
+) -> None:
+    """Verifies that reindex_document incrementally adds child chunks without full rebuild."""
+    bm25_dir = tmp_path / "indexes" / "bm25"
+    dense_dir = tmp_path / "indexes" / "dense"
+
+    # 1. Ingest initial document
+    doc1 = repo.insert_document(
+        Document(
+            document_id=uuid4(),
+            filename="doc1.md",
+            raw_file_path="raw/doc1.md",
+            parsed_file_path="parsed/doc1.md",
+            file_type="markdown",
+            file_size_bytes=100,
+            checksum="checksum_doc1",
+            status="stored",
+        )
+    )
+    p1 = ParentChunk(
+        document_id=doc1.document_id,
+        content="# Doc 1 Header\nDoc 1 content.",
+        parent_index=0,
+        heading_path=["Doc 1"],
+    )
+    c1 = ChildChunk(
+        parent_chunk_id=p1.parent_chunk_id,
+        document_id=doc1.document_id,
+        chunk_index=0,
+        content="Doc 1 child chunk content for indexing.",
+        heading_path=["Doc 1"],
+    )
+    repo.persist_chunks_atomically(doc1.document_id, [p1], [c1])
+
+    embedder = DeterministicEmbedder(dimension=384)
+    app_config = AppConfig()
+    app_config.dense_retrieval.vector_dimension = 384
+
+    reindexer = ReindexService(
+        repository=repo,
+        config=app_config,
+        bm25_index_dir=bm25_dir,
+        dense_index_dir=dense_dir,
+        embedder=embedder,
+    )
+    reindexer.reindex_all()
+
+    dense_idx = DenseIndex.load(dense_dir, config=app_config.dense_retrieval, embedder=embedder)
+    assert len(dense_idx.index) == 1
+    assert len(dense_idx.id_map) == 1
+
+    # 2. Ingest second document and reindex incrementally
+    doc2 = repo.insert_document(
+        Document(
+            document_id=uuid4(),
+            filename="doc2.md",
+            raw_file_path="raw/doc2.md",
+            parsed_file_path="parsed/doc2.md",
+            file_type="markdown",
+            file_size_bytes=100,
+            checksum="checksum_doc2",
+            status="stored",
+        )
+    )
+    p2 = ParentChunk(
+        document_id=doc2.document_id,
+        content="# Doc 2 Header\nDoc 2 content.",
+        parent_index=0,
+        heading_path=["Doc 2"],
+    )
+    c2 = ChildChunk(
+        parent_chunk_id=p2.parent_chunk_id,
+        document_id=doc2.document_id,
+        chunk_index=0,
+        content="Doc 2 child chunk content for incremental testing.",
+        heading_path=["Doc 2"],
+    )
+    repo.persist_chunks_atomically(doc2.document_id, [p2], [c2])
+
+    count = reindexer.reindex_document(doc2.document_id)
+    assert count == 2
+
+    # Assert both vectors exist in updated dense index
+    updated_dense = DenseIndex.load(dense_dir, config=app_config.dense_retrieval, embedder=embedder)
+    assert len(updated_dense.index) == 2
+    assert len(updated_dense.id_map) == 2
+    assert updated_dense.id_map.get_uint64(c1.chunk_id) is not None
+    assert updated_dense.id_map.get_uint64(c2.chunk_id) is not None
