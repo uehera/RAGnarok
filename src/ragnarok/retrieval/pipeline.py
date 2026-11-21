@@ -34,6 +34,28 @@ from ragnarok.storage.repository import RelationalRepository
 logger = structlog.get_logger(__name__)
 
 
+def extract_document_filter(query: str, repo: RelationalRepository | None) -> str | None:
+    """
+    Extracts a target document filter if the query explicitly references
+    a document filename or stem present in the repository.
+    """
+    if not repo:
+        return None
+    try:
+        all_docs = repo.list_all_documents() if hasattr(repo, "list_all_documents") else []
+        query_lower = query.lower()
+        for doc in all_docs:
+            fn = doc.filename.lower()
+            if fn in query_lower:
+                return doc.filename
+            stem = fn.rsplit(".", 1)[0]
+            if len(stem) > 4 and stem in query_lower:
+                return doc.filename
+    except Exception as exc:
+        logger.debug("Failed to extract doc_filter from query", error=str(exc))
+    return None
+
+
 def retrieve_and_assemble_context(
     query: str,
     config: AppConfig,
@@ -89,11 +111,18 @@ def retrieve_and_assemble_context(
 
     # 1. Retrieval Stage
     start_retrieval = time.perf_counter()
+
+    if doc_filter is None and repo:
+        doc_filter = extract_document_filter(query, repo)
+        if doc_filter:
+            logger.info("Auto-detected target document filter from query", doc_filter=doc_filter)
+
     bm25_path = Path("data/indexes/bm25")
     dense_path = Path("data/indexes/dense")
 
     candidates: list[ChildResultCandidate] = []
     top_n = config.reranking.top_n if rerank else config.reranking.top_k
+    search_k = max(top_n * 3, 40) if doc_filter else top_n
 
     has_bm25 = bm25_path.exists() and any(f.name != ".gitkeep" for f in bm25_path.iterdir())
     has_dense = dense_path.exists() and any(f.name != ".gitkeep" for f in dense_path.iterdir())
@@ -124,13 +153,13 @@ def retrieve_and_assemble_context(
             dense_searcher=dense_searcher,
             config=config.hybrid_retrieval,
         )
-        candidates = fusion_svc.search(query=query, top_k=top_n)
+        candidates = fusion_svc.search(query=query, top_k=search_k)
     elif strategy == "dense" and dense_searcher:
-        candidates = dense_searcher.search(query=query, top_k=top_n)
+        candidates = dense_searcher.search(query=query, top_k=search_k)
     elif (strategy in ("bm25", "lexical") and lex_searcher) or lex_searcher:
-        candidates = lex_searcher.search(query=query, top_k=top_n)
+        candidates = lex_searcher.search(query=query, top_k=search_k)
     elif dense_searcher:
-        candidates = dense_searcher.search(query=query, top_k=top_n)
+        candidates = dense_searcher.search(query=query, top_k=search_k)
 
     timings["retrieval_ms"] = (time.perf_counter() - start_retrieval) * 1000.0
 
@@ -139,7 +168,7 @@ def retrieve_and_assemble_context(
         doc_pattern = doc_filter.strip().lower()
         all_docs = repo.list_all_documents() if hasattr(repo, "list_all_documents") else []
         matching_doc_ids = {
-            d.document_id for d in all_docs if doc_pattern in d.filename.lower()
+            d.document_id for d in all_docs if doc_pattern in d.filename.lower() or d.filename.lower() in doc_pattern
         }
         if matching_doc_ids:
             candidates = [c for c in candidates if c.document_id in matching_doc_ids]
@@ -150,6 +179,7 @@ def retrieve_and_assemble_context(
                 candidates = [c for c in candidates if c.document_id == exact_doc.document_id]
             else:
                 candidates = []
+        candidates = candidates[:top_n]
 
     # 2. Cross-Encoder Reranking Stage
     start_rerank = time.perf_counter()
@@ -180,8 +210,9 @@ def retrieve_and_assemble_context(
     ctx_service = ContextManagementService.from_config(
         parent_lookup=repo,
         config=ctx_config,
+        guardrails_config=config.guardrails,
     )
-    payload = ctx_service.build_context(candidates)
+    payload = ctx_service.build_context(candidates, target_doc=doc_filter)
     timings["context_ms"] = (time.perf_counter() - start_ctx) * 1000.0
 
     return payload, candidates, timings

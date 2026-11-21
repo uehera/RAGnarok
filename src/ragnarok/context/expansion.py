@@ -35,6 +35,7 @@ class ParentLookupProtocol(Protocol):
 def expand_parent_contexts(
     candidates: list[ChildResultCandidate],
     parent_lookup: ParentLookupProtocol,
+    target_doc: str | None = None,
 ) -> list[ExpandedParentContext]:
     """
     Pure procedural function expanding child candidates into deduplicated parent contexts.
@@ -118,13 +119,24 @@ def expand_parent_contexts(
         )
         expanded_list.append(expanded_parent)
 
-    # Step 5: Order unique parents strictly by best_child_rank ascending
-    expanded_list.sort(key=lambda p: (p.best_child_rank, p.parent_index))
+    # Step 5: Order unique parents strictly by best_child_rank ascending, prioritizing target document if set
+    if target_doc:
+        target_clean = target_doc.strip().lower()
+        expanded_list.sort(
+            key=lambda p: (
+                0 if (target_clean in p.filename.lower() or p.filename.lower() in target_clean) else 1,
+                p.best_child_rank,
+                p.parent_index,
+            )
+        )
+    else:
+        expanded_list.sort(key=lambda p: (p.best_child_rank, p.parent_index))
 
     logger.info(
         "Expanded parent contexts",
         input_candidates=len(candidates),
         unique_parents=len(expanded_list),
+        target_doc=target_doc,
     )
     return expanded_list
 
@@ -137,6 +149,10 @@ class ParentContextExpander:
     def __init__(self, parent_lookup: ParentLookupProtocol) -> None:
         self.parent_lookup = parent_lookup
 
-    def expand(self, candidates: list[ChildResultCandidate]) -> list[ExpandedParentContext]:
+    def expand(
+        self,
+        candidates: list[ChildResultCandidate],
+        target_doc: str | None = None,
+    ) -> list[ExpandedParentContext]:
         """Expands child chunk retrieval candidates into deduplicated, ordered parent contexts."""
-        return expand_parent_contexts(candidates, self.parent_lookup)
+        return expand_parent_contexts(candidates, self.parent_lookup, target_doc=target_doc)

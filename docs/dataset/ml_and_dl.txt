@@ -1,0 +1,17 @@
+# Machine Learning
+
+Machine Learning (ML) is a branch of Artificial Intelligence that enables computers to learn from data and improve their performance without being explicitly programmed for every task. Instead of following fixed instructions, ML algorithms identify patterns, relationships, and trends within datasets to make predictions or decisions.
+
+There are three major types of machine learning: supervised learning, unsupervised learning, and reinforcement learning. Supervised learning uses labeled data, while unsupervised learning discovers hidden patterns in unlabeled data. Reinforcement learning trains models through rewards and penalties.
+
+Machine learning is widely used in recommendation systems, fraud detection, spam filtering, healthcare, and autonomous vehicles. Popular ML libraries include Scikit-learn, TensorFlow, and PyTorch. It plays an important role in modern data-driven applications.
+
+# Deep Learning
+
+Deep Learning is a specialized branch of Machine Learning that uses artificial neural networks with multiple layers to learn complex patterns from large amounts of data. These networks are inspired by the structure of the human brain and consist of interconnected computational units called neurons.
+
+Unlike traditional machine learning approaches, deep learning can automatically extract useful features from raw data, reducing the need for manual feature engineering.
+
+Common deep learning architectures include Convolutional Neural Networks (CNNs), Recurrent Neural Networks (RNNs), and Transformers. CNNs are widely used in image recognition, while Transformers power many modern language models.
+
+Deep learning applications include speech recognition, medical image analysis, autonomous driving, natural language processing, and generative AI. Popular frameworks include PyTorch and TensorFlow. It is a fundamental technology behind many modern AI innovations.

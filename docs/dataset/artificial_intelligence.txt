@@ -1,0 +1,9 @@
+# Artificial Intelligence
+
+Artificial Intelligence (AI) is a field of computer science focused on developing machines and software capable of performing tasks that normally require human intelligence. These tasks include reasoning, problem-solving, learning, understanding language, recognizing images, and making decisions.
+
+AI systems use techniques such as machine learning, deep learning, natural language processing, and computer vision to process information and produce meaningful results.
+
+Artificial Intelligence is used across many industries, including healthcare, education, finance, transportation, and manufacturing. Examples include virtual assistants, chatbots, recommendation engines, facial recognition systems, and autonomous vehicles.
+
+Generative AI is another rapidly growing area that enables machines to create new content, including text, images, audio, and code. AI continues to transform how individuals and organizations solve problems and automate everyday activities.

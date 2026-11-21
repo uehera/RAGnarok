@@ -11,6 +11,7 @@ Generates zero-based sequential indices (parent_index, chunk_index) and parent_c
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 

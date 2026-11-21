@@ -109,3 +109,11 @@ class AssembledContextPayload(BaseModel):
         default_factory=dict,
         description="Mapping of [Source X] labels to database and retrieval metadata",
     )
+    screened_threats: list[str] = Field(
+        default_factory=list,
+        description="Threat tags intercepted by in-flight context screening",
+    )
+    dropped_parents_count: int = Field(
+        default=0,
+        description="Number of candidate parent chunks dropped due to in-flight security screening",
+    )

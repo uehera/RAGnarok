@@ -219,6 +219,56 @@ class DenseIndex:
             dimension=self.config.vector_dimension,
         )
 
+    def add_chunks(self, chunks: list[ChildChunk]) -> int:
+        """
+        Incrementally embeds and appends new child chunk vectors to the existing TurboVec index.
+        Filters out any chunks already registered in id_map.
+        """
+        if not chunks:
+            return 0
+
+        new_chunks = [c for c in chunks if c.chunk_id not in self.id_map.uuid_to_id]
+        if not new_chunks:
+            return 0
+
+        texts = [chunk.content for chunk in new_chunks]
+        batch_size = self.config.batch_size
+
+        all_vectors_list: list[np.ndarray] = []
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i : i + batch_size]
+            batch_vecs = self.embedder.embed_texts(batch_texts)
+
+            if batch_vecs.shape[1] != self.config.vector_dimension:
+                raise ValueError(
+                    f"Generated embedding dimension {batch_vecs.shape[1]} does not match "
+                    f"configured vector_dimension {self.config.vector_dimension}"
+                )
+            all_vectors_list.append(batch_vecs)
+
+        vectors = np.concatenate(all_vectors_list, axis=0)
+
+        if self.config.similarity_metric.lower() == "cosine":
+            vectors = l2_normalize(vectors)
+
+        handles = np.array(
+            [self.id_map.register(chunk.chunk_id) for chunk in new_chunks],
+            dtype=np.uint64,
+        )
+
+        vectors = np.ascontiguousarray(vectors, dtype=np.float32)
+        handles = np.ascontiguousarray(handles, dtype=np.uint64)
+
+        self.index.add_with_ids(vectors, handles)
+
+        logger.info(
+            "Incrementally added chunks to TurboVec dense vector index",
+            added_count=len(new_chunks),
+            total_count=len(self.index),
+            dimension=self.config.vector_dimension,
+        )
+        return len(new_chunks)
+
     def save(self, index_dir: Path | str) -> None:
         """
         Persists TurboVec index file and ID mapping table to data/indexes/dense/.

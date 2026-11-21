@@ -50,6 +50,7 @@ class IngestionPipeline:
                 repository=repository,
                 staging_dir=config.ingestion.staging_directory,
                 raw_dir=config.ingestion.raw_directory,
+                parsed_dir=config.ingestion.parsed_directory,
                 supported_formats=config.ingestion.supported_formats,
             )
         )
@@ -153,6 +154,14 @@ class IngestionPipeline:
                     error_message="Quarantined: malicious prompt injection directive",
                     completed=True,
                 )
+            if updated_doc is not None:
+                updated_doc.status = "failed"
+            # Cleanup intermediate parsed artifact so quarantined malware is not kept in parsed directory
+            if parsed_markdown_path.exists():
+                try:
+                    parsed_markdown_path.unlink()
+                except Exception:
+                    pass
             return updated_doc, False
 
         # Stage 4: Atomic Relational Persistence
@@ -175,3 +184,7 @@ class IngestionPipeline:
     def reindex(self) -> int:
         """Stage 5: Builds BM25s and TurboVec indexes from all chunks in DuckDB."""
         return self.reindexer.reindex_all()
+
+    def reindex_document(self, document_id: UUID) -> int:
+        """Stage 5: Incrementally updates BM25s and TurboVec indexes for a newly ingested document."""
+        return self.reindexer.reindex_document(document_id)

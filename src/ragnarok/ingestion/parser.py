@@ -47,7 +47,19 @@ class PyMuPDFParserEngine:
         if suffix == ".pdf":
             import pymupdf4llm
 
-            markdown_text = pymupdf4llm.to_markdown(str(file_path))
+            # Fast digital PDF extraction without CPU-heavy OCR
+            try:
+                markdown_text = pymupdf4llm.to_markdown(str(file_path), use_ocr=False)
+            except Exception:
+                markdown_text = pymupdf4llm.to_markdown(str(file_path))
+
+            # Fallback to OCR only if extracted content is empty (scanned image PDF)
+            if not markdown_text or len(markdown_text.strip()) < 20:
+                try:
+                    markdown_text = pymupdf4llm.to_markdown(str(file_path), use_ocr=True)
+                except Exception:
+                    pass
+
             return markdown_text
 
         raise ValueError(f"Unsupported file format for parsing: {suffix}")
@@ -131,14 +143,10 @@ class DocumentParser:
 
             # 2. Extract layout and normalized markdown (or reuse existing parsed artifact)
             candidate_files = [
+                parsed_target_path,
                 self.parsed_dir / f"{raw_path.stem}.md",
                 self.parsed_dir / f"{Path(doc.filename).stem}.md",
             ]
-            prefix = doc.filename.split("_")[0]
-            for p in self.parsed_dir.glob("*.md"):
-                if p.name.startswith(prefix) and p.stat().st_size > 0:
-                    candidate_files.append(p)
-
             candidate_md = next(
                 (c for c in candidate_files if c.exists() and c.stat().st_size > 0), None
             )

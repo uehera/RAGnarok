@@ -140,7 +140,8 @@ class StagingService:
             raise FileNotFoundError(f"Source file not found at: {source}")
 
         dest = self.staging_dir / source.name
-        shutil.copy2(source, dest)
+        if source.resolve() != dest.resolve():
+            shutil.copy2(source, dest)
         return dest
 
     def process_file(

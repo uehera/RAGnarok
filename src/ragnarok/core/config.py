@@ -40,26 +40,26 @@ class EnvSecrets(BaseSettings):
         extra="ignore",
     )
 
-    db_path: str = Field(
+    database_url: str = Field(
         default="data/db/ragnarok.duckdb",
-        description="Path to embedded DuckDB database file",
-        validation_alias=AliasChoices(
-            "db_path", "RAGNAROK_DB_PATH", "database_url", "DATABASE_URL"
-        ),
+        description="Configured database URL or path",
+        validation_alias=AliasChoices("database_url", "DATABASE_URL"),
     )
 
-    @field_validator("db_path", mode="after")
-    @classmethod
-    def sanitize_db_path(cls, v: str) -> str:
-        """Sanitizes PostgreSQL or remote database URIs to default local DuckDB storage path."""
-        if v.startswith("postgresql://") or v.startswith("postgres://"):
-            return "data/db/ragnarok.duckdb"
-        return v
+    custom_db_path: str | None = Field(
+        default=None,
+        description="Explicit DuckDB storage file path override",
+        validation_alias=AliasChoices("db_path", "RAGNAROK_DB_PATH"),
+    )
 
     @property
-    def database_url(self) -> str:
-        """Backward-compatibility property returning the configured DuckDB path."""
-        return self.db_path
+    def db_path(self) -> str:
+        """Sanitizes PostgreSQL or remote database URIs to default local DuckDB storage path."""
+        if self.custom_db_path:
+            return self.custom_db_path
+        if self.database_url.startswith("postgresql://") or self.database_url.startswith("postgres://"):
+            return "data/db/ragnarok.duckdb"
+        return self.database_url
 
     openai_api_key: SecretStr | None = Field(default=None, description="OpenAI API key")
     anthropic_api_key: SecretStr | None = Field(default=None, description="Anthropic API key")
@@ -184,9 +184,13 @@ class GuardrailsConfig(BaseModel):
     enable_grounding_check: bool = Field(default=False)
     enable_document_guard: bool = Field(default=True)
     document_injection_action: Literal["sanitize", "quarantine", "reject"] = Field(
-        default="sanitize"
+        default="quarantine"
     )
     quarantine_directory: Path = Field(default_factory=lambda: Path("data/quarantine"))
+    enable_context_screening: bool = Field(default=True)
+    context_screening_action: Literal["drop", "quarantine", "sanitize"] = Field(
+        default="drop"
+    )
     model: str = Field(default="groq/qwen/qwen3.8-27b")
     timeout_seconds: float = Field(default=2.0, ge=0.1)
 
