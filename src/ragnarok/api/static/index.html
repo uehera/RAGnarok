@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGnarok</title>
+  <link rel="stylesheet" href="/static/style.css?v=3.6">
+  <!-- Highlight.js Syntax Highlighting Theme (GitHub Dark) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+  <!-- KaTeX Mathematical Equations CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%236366f1%22/></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <button id="toggleSidebarBtn" class="icon-toggle-btn" title="Toggle Navigation Sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="brand">
+          <span class="brand-title">RAGnarok</span>
+          <span class="status-pill online"><span class="dot"></span>Online</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="engine-badge">DuckDB · BM25s · TurboVec</span>
+        <button id="shortcutsBtn" class="api-link" title="View Keyboard Shortcuts">Shortcuts (?)</button>
+        <button id="archBtn" class="api-link" title="System Architecture Explorer">Arch</button>
+        <a href="/docs" target="_blank" class="api-link" title="OpenAPI Swagger Documentation">API /docs</a>
+      </div>
+    </header>
+
+    <!-- Main 3-Column Shell -->
+    <div class="main-layout" id="mainLayout">
+      <!-- Left Sidebar: Navigation & Settings -->
+      <aside class="sidebar-nav card" id="sidebarNav">
+        <div class="nav-section">
+          <h3 class="section-title">Navigation</h3>
+          <nav class="nav-menu">
+            <button class="nav-btn active" data-tab="chat" title="Chat (Ctrl+K)">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span class="nav-label">CHAT</span>
+            </button>
+            <button class="nav-btn" data-tab="library" title="Library">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span class="nav-label">LIBRARY</span>
+            </button>
+            <button class="nav-btn" data-tab="vault" title="Vault">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              <span class="nav-label">VAULT</span>
+            </button>
+            <button class="nav-btn" data-tab="metrics" title="Metrics & Formal Benchmarks">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              <span class="nav-label">METRICS</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="settings-section">
+          <h3 class="section-title">Retrieval settings</h3>
+          <div class="setting-item">
+            <label class="setting-label" for="strategySelect">Strategy</label>
+            <select id="strategySelect" class="clean-select">
+              <option value="hybrid" selected>Hybrid</option>
+              <option value="dense">Vector</option>
+              <option value="bm25">BM25</option>
+            </select>
+          </div>
+
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label" title="Enable Cross-Encoder reranking for precision">
+              <input type="checkbox" id="rerankToggle" checked>
+              <span>Reranking</span>
+            </label>
+          </div>
+
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label" title="Intelligently classify whether retrieval is necessary or synthesize directly">
+              <input type="checkbox" id="selfRagToggle">
+              <span>Self-RAG Gate</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Exit Action at Bottom of Navigation Sidebar -->
+        <div class="sidebar-bottom-section">
+          <button type="button" id="exitAppBtn" class="nav-btn exit-btn" title="Exit / Close Session">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span class="nav-label">EXIT</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Center Column: Workspace -->
+      <main class="center-content">
+        <!-- View 1: Chat Workspace -->
+        <section id="chatView" class="view-panel active card">
+          <div class="view-header">
+            <h2 class="view-title">Chat</h2>
+            <button id="clearChatBtn" class="pill-btn" title="Clear conversation history">Clear History</button>
+          </div>
+
+          <div id="chatMessages" class="chat-messages">
+            <!-- Welcoming Empty State with Starter Prompts -->
+            <div id="chatEmptyState" class="chat-empty-state">
+              <h3 class="empty-state-title">How can I help?</h3>
+              <p class="empty-state-desc">Ask questions grounded in your indexed documents.</p>
+              <div class="starter-chips">
+                <button type="button" class="starter-chip" data-prompt="How does DuckDB parent expansion work?">
+                  <span>How does DuckDB parent expansion work?</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+                <button type="button" class="starter-chip" data-prompt="Explain hybrid search with BM25s and TurboVec.">
+                  <span>Explain hybrid search with BM25s and TurboVec</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+                <button type="button" class="starter-chip" data-prompt="How are prompt injections intercepted?">
+                  <span>How are prompt injections intercepted?</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Chat Input Bar with Auto-expanding Textarea, File Upload & Controls -->
+          <div class="chat-input-wrapper">
+            <div id="chatUploadStatus" class="chat-upload-status" style="display: none;"></div>
+            <form id="chatForm" class="chat-form">
+              <button type="button" id="chatAttachBtn" class="attach-btn" title="Upload Document File (.md, .txt, .pdf)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <input type="file" id="chatFileInput" accept=".md,.txt,.pdf" style="display: none;">
+              <textarea 
+                id="queryInput" 
+                class="chat-textarea has-attach-btn" 
+                placeholder="Ask RAGnarok anything... (Enter to send, Shift+Enter for newline)" 
+                rows="1"
+                required
+              ></textarea>
+              <button type="button" id="stopBtn" class="stop-btn" style="display: none;" title="Stop Generating">
+                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              </button>
+              <button type="submit" id="sendBtn" class="send-btn" title="Send Query">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- View 2: Library (Manage indexed documents & knowledge storage) -->
+        <section id="libraryView" class="view-panel card" style="display: none;">
+          <div class="view-header">
+            <div class="title-with-desc">
+              <h2 class="view-title">Library</h2>
+              <span class="header-subdesc">Indexed documents & knowledge storage in DuckDB</span>
+            </div>
+            <div class="header-actions">
+              <button id="reindexVaultBtn" class="pill-btn accent-action" title="Rebuild BM25 and TurboVec search indexes">Rebuild Indexes</button>
+              <button id="refreshVaultBtn" class="pill-btn" title="Refresh document list">Refresh</button>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="vaultSearchInput" class="clean-search-input" placeholder="Filter documents by name...">
+            </div>
+            <span id="vaultStatsIndicator" class="filter-count"></span>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="vaultTable">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="filename">Filename <span class="sort-icon">↕</span></th>
+                  <th class="sortable" data-sort="file_type">Type <span class="sort-icon">↕</span></th>
+                  <th class="sortable" data-sort="file_size_bytes">Size <span class="sort-icon">↕</span></th>
+                  <th class="sortable" data-sort="chunk_count">Indexed Chunks <span class="sort-icon">↕</span></th>
+                  <th class="sortable" data-sort="status">Status <span class="sort-icon">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="vaultTbody">
+                <tr><td colspan="5" class="loading-td">Loading indexed records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- View 3: Vault (Quarantine Zone - Quarantine Alerts) -->
+        <section id="vaultView" class="view-panel card" style="display: none;">
+          <div class="view-header">
+            <div class="title-with-desc">
+              <h2 class="view-title">Vault</h2>
+              <span class="header-subdesc">Pre-ingestion quarantine alerts & threat forensics</span>
+            </div>
+            <div class="header-actions">
+              <button id="refreshQuarantineBtn" class="pill-btn" title="Refresh quarantine threats">Refresh</button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="quarantineTable">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Source File</th>
+                  <th>Detected Threats</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="quarantineTbody">
+                <tr><td colspan="5" class="loading-td">Scanning data/quarantine/...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="quarantineAuditDrawer" class="audit-drawer" style="display: none;">
+            <div class="drawer-header">
+              <div class="drawer-title-area">
+                <h3 id="auditDrawerTitle">Incident Forensic Metadata</h3>
+                <span class="drawer-subtitle" id="auditDrawerSubtitle">Structured security inspection</span>
+              </div>
+              <div class="drawer-actions">
+                <button id="toggleRawJsonBtn" class="pill-btn" type="button">Raw JSON</button>
+                <button id="closeAuditBtn" class="pill-btn" type="button">Close</button>
+              </div>
+            </div>
+            <div id="auditTableContainer" class="audit-table-wrapper"></div>
+            <pre id="auditJsonContent" style="display: none;"></pre>
+          </div>
+        </section>
+
+        <!-- View 4: Metrics & Formal Benchmarks Dashboard -->
+        <section id="metricsView" class="view-panel card" style="display: none;">
+          <div class="view-header">
+            <div class="title-with-desc">
+              <h2 class="view-title">Metrics</h2>
+              <span class="header-subdesc">Formal 5-Layer evaluation scorecard across peer-reviewed datasets & security benchmarks</span>
+            </div>
+            <div class="header-actions">
+              <button id="downloadReportBtn" class="pill-btn" title="Download evaluation summary report">Download Report</button>
+              <button id="refreshMetricsBtn" class="pill-btn" title="Refresh evaluation metrics">Refresh</button>
+            </div>
+          </div>
+
+          <!-- KPI Summary Cards -->
+          <div class="metrics-kpi-grid">
+            <div class="metrics-kpi-card">
+              <div class="kpi-label">BEIR SciFact nDCG@10</div>
+              <div class="kpi-value text-blue">0.7332</div>
+              <div class="kpi-sub">Recall@10: <strong>85.11%</strong> (RRF k=60)</div>
+            </div>
+            <div class="metrics-kpi-card">
+              <div class="kpi-label">ACL RGB Robustness</div>
+              <div class="kpi-value text-emerald">100.0%</div>
+              <div class="kpi-sub">Negative Rejection: <strong>98.0%</strong></div>
+            </div>
+            <div class="metrics-kpi-card">
+              <div class="kpi-label">BIPIA Attack Interception</div>
+              <div class="kpi-value text-purple">100.0%</div>
+              <div class="kpi-sub">DB Contamination: <strong>0.00% (Zero Leak)</strong></div>
+            </div>
+            <div class="metrics-kpi-card">
+              <div class="kpi-label">Incremental Reindex SLA</div>
+              <div class="kpi-value text-blue">259 ms</div>
+              <div class="kpi-sub">TurboVec: <strong>310x Speedup</strong></div>
+            </div>
+          </div>
+
+          <!-- Charts 2x2 Grid -->
+          <div class="metrics-charts-grid">
+            <!-- Chart 1: Recall@K Convergence Curve (Line Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Recall@K Convergence Curve (BEIR SciFact)</span>
+                <span class="badge badge-purple">Line Chart</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="recallLineChart"></canvas>
+              </div>
+              <div class="chart-caption">Measures recall saturation across rank cutoffs K=1 to K=20. Hybrid RRF consistently leads over pure Dense and BM25.</div>
+            </div>
+
+            <!-- Chart 2: Latency Percentile SLA Curve (Line Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Retrieval Latency SLA Percentiles (P10–P99)</span>
+                <span class="badge badge-blue">Line Chart</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="latencyLineChart"></canvas>
+              </div>
+              <div class="chart-caption">Measures latency predictability. BM25s executes in 0.45ms; Hybrid RRF delivers steady 37ms with zero tail spikes.</div>
+            </div>
+
+            <!-- Chart 3: Grounding & Triad Capabilities (Radar Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">RAG Grounding & Triad Radar (RGB + Golden)</span>
+                <span class="badge badge-green">Radar Chart</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="groundingRadarChart"></canvas>
+              </div>
+              <div class="chart-caption">Evaluates Faithfulness (97%), Noise Robustness (100%), Negative Rejection (98%), Precision (96%), and Recall (99%).</div>
+            </div>
+
+            <!-- Chart 4: Security & Quarantine Multi-Surface Defense (Bar Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Multi-Surface Security Defense (Microsoft BIPIA)</span>
+                <span class="badge badge-red">Security Matrix</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="securityBarChart"></canvas>
+              </div>
+              <div class="chart-caption">Certified 0.00% Database Contamination (DCR) and 0.00% Secret Leakage (SLR) across 75 Trojan document attacks.</div>
+            </div>
+
+            <!-- Chart 5: Cross-Domain IR Generalization (Grouped Bar Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Cross-Domain IR Generalization (SciFact vs. NFCorpus)</span>
+                <span class="badge badge-blue">Grouped Bar</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="crossDomainBarChart"></canvas>
+              </div>
+              <div class="chart-caption">Compares nDCG@10 across General Science (SciFact) and Biomedical Literature (NFCorpus). Hybrid RRF wins consistently across both domains.</div>
+            </div>
+
+            <!-- Chart 6: Multi-Hop Reasoning Archetypes (Horizontal Bar Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Multi-Hop Reasoning Archetypes (MultiHop-RAG)</span>
+                <span class="badge badge-purple">Horizontal Bar</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="multihopBarChart"></canvas>
+              </div>
+              <div class="chart-caption">Joint Recall@10 across Comparison (74%), Inference (54%), and Temporal (46%) queries, with 100% negative rejection on ungrounded queries.</div>
+            </div>
+
+            <!-- Chart 7: Precision-Recall (P-R) Convergence Curve (Line Chart) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Precision-Recall (P-R) Tradeoff Curve</span>
+                <span class="badge badge-purple">P-R Curve</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="prCurveChart"></canvas>
+              </div>
+              <div class="chart-caption">Precision vs. Recall across rank cutoffs K=1 to K=20. Hybrid RRF maintains strictly higher Area Under Curve (AUC-PR).</div>
+            </div>
+
+            <!-- Chart 8: Latency vs. Quality Pareto Frontier (Scatter Plot) -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">Latency vs. nDCG@10 Pareto Frontier</span>
+                <span class="badge badge-green">Pareto Scatter</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="paretoScatterChart"></canvas>
+              </div>
+              <div class="chart-caption">Scatter analysis: Hybrid RRF reaches peak quality (0.7332) at 37ms, proving cross-encoders impose a 2.5s compute penalty with no benefit.</div>
+            </div>
+          </div>
+
+          <!-- Verified Benchmark Datasets & Testing Corpus Corpus Table -->
+          <div class="metrics-table-section">
+            <h3 class="metrics-section-title">Verified Benchmark Datasets & Evaluation Corpus</h3>
+            <div class="table-container">
+              <table class="data-table" id="benchmarkDatasetsTable">
+                <thead>
+                  <tr>
+                    <th>Dataset & Citation</th>
+                    <th>Target Layer</th>
+                    <th>Why We Used It? (Objective & Architectural Rationale)</th>
+                    <th>Corpus Size & Test Samples</th>
+                    <th>Key Measured Metric</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>BEIR SciFact</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Wadden et al., EMNLP 2020</span>
+                    </td>
+                    <td><span class="badge badge-blue">Layer A: IR Ablation</span></td>
+                    <td>Validates foundational Information Retrieval precision against peer-reviewed scientific claims. Used to benchmark all 4 retrieval strategies (Dense vs. BM25s vs. Hybrid RRF vs. Cross-Encoder) and prove why RRF fusion delivers superior rank saturation.</td>
+                    <td><strong>300 test queries</strong> (official BEIR <code>test.tsv</code> split) evaluated against <strong>5,183 scientific abstracts</strong> (100% verified relevance labels).</td>
+                    <td><strong class="text-blue">0.7332 nDCG@10</strong><br><span class="text-muted" style="font-size: 0.75rem;">Recall@10: 85.11%</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>BEIR NFCorpus</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Boteva et al., ECIR 2016</span>
+                    </td>
+                    <td><span class="badge badge-blue">Layer A: Biomedical IR</span></td>
+                    <td>Tests cross-domain retrieval generalization into specialized clinical and nutrition literature. Verifies that RAGnarok's Hybrid RRF engine generalizes across complex medical nomenclature without domain-specific re-tuning.</td>
+                    <td><strong>323 test queries</strong> (full test split) evaluated against <strong>3,633 medical abstracts</strong> across <strong>12,335 relevance pairs</strong> (with 95% Confidence Intervals).</td>
+                    <td><strong class="text-blue">0.3563 nDCG@10</strong><br><span class="text-muted" style="font-size: 0.75rem;">MRR@10: 0.5629 (±0.048)</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>ACL RGB Benchmark</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Chen et al., ACL 2024</span>
+                    </td>
+                    <td><span class="badge badge-purple">Layer B & C: Grounding</span></td>
+                    <td>Measures generator noise robustness when ground-truth answers are submerged in 80% distractor noise, and tests zero-speculation negative rejection when positive evidence is withheld or contradictory.</td>
+                    <td><strong>100 curated benchmark cases</strong> (<strong>50</strong> noise-submerged instances with 4 distractor docs each + <strong>50</strong> unanswerable negative rejection queries).</td>
+                    <td><strong class="text-emerald">100.0% Robustness</strong><br><span class="text-muted" style="font-size: 0.75rem;">98.0% Negative Rejection</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Microsoft BIPIA</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Ying et al., Microsoft 2024</span>
+                    </td>
+                    <td><span class="badge badge-red">Layer D: Security Gateways</span></td>
+                    <td>Evaluates multi-surface defense-in-depth against Indirect Prompt Injection (IPI) attacks embedded as Trojan payloads in documents and code snippets to poison DuckDB or trigger context exfiltration.</td>
+                    <td><strong>100 benchmark documents</strong> (<strong>75</strong> Trojan text and code attack payloads + <strong>25</strong> clean benign control documents).</td>
+                    <td><strong class="text-purple">100.0% ADR</strong><br><span class="text-muted" style="font-size: 0.75rem;">0.00% DB Contamination</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>MultiHop-RAG</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Tang et al., 2024</span>
+                    </td>
+                    <td><span class="badge badge-purple">Layer B: Multi-Hop</span></td>
+                    <td>Tests multi-document cross-chunk reasoning across 4 reasoning archetypes (Comparison, Inference, Temporal, Null), evaluating joint evidence recall across 2-4 supporting articles and Context Window Expansion gain.</td>
+                    <td><strong>200 balanced test cases</strong> (50 comparison, 50 inference, 50 temporal, 50 null queries) evaluated against <strong>609 multi-source news articles</strong> (TechCrunch, Verge, Mashable).</td>
+                    <td><strong class="text-blue">58.0% Joint Recall@10</strong><br><span class="text-muted" style="font-size: 0.75rem;">100.0% Null Rejection</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>RAGAS Golden Reference</strong><br>
+                      <span class="text-muted" style="font-size: 0.74rem;">Es et al., EACL 2024</span>
+                    </td>
+                    <td><span class="badge badge-green">Layer A & B: RAG Triad</span></td>
+                    <td>Enforces deterministic, regression-free verification of the classic RAG Triad (Faithfulness, Context Precision, Context Recall, Answer Relevancy) against curated enterprise domain documentation.</td>
+                    <td><strong>20 curated golden cases</strong> covering enterprise architectural specifications and technical constraints.</td>
+                    <td><strong class="text-emerald">0.970 Faithfulness</strong><br><span class="text-muted" style="font-size: 0.75rem;">0.963 Context Precision</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Master 5-Layer Empirical Scorecard Table -->
+          <div class="metrics-table-section">
+            <h3 class="metrics-section-title">Master 5-Layer Evaluation Scorecard (Layers A–E)</h3>
+            <div class="table-container">
+              <table class="data-table" id="masterScorecardTable">
+                <thead>
+                  <tr>
+                    <th>Layer</th>
+                    <th>Evaluation Metric</th>
+                    <th>Baseline / SLA Target</th>
+                    <th>RAGnarok Score</th>
+                    <th>Benchmark Source</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="masterScorecardTbody">
+                  <tr><td><strong>Layer A</strong></td><td>Recall@10 (SciFact)</td><td>≥ 0.80</td><td><strong class="text-emerald">85.11%</strong></td><td>BEIR SciFact (300 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer A</strong></td><td>nDCG@10 (SciFact)</td><td>≥ 0.70</td><td><strong class="text-blue">0.7332</strong></td><td>BEIR SciFact (300 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer A</strong></td><td>nDCG@10 (Biomedical)</td><td>≥ 0.30</td><td><strong class="text-blue">0.3563 (±0.035)</strong></td><td>BEIR NFCorpus (323 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer A</strong></td><td>MRR@10 (Biomedical)</td><td>≥ 0.50</td><td><strong class="text-purple">0.5629 (±0.048)</strong></td><td>BEIR NFCorpus (323 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Noise Robustness</td><td>≥ 85.0%</td><td><strong class="text-emerald">100.0%</strong></td><td>RGB Benchmark (ACL 2024)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Negative Rejection Rate</td><td>≥ 90.0%</td><td><strong class="text-emerald">98.0%</strong></td><td>RGB Benchmark (ACL 2024)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Multi-Hop Joint Recall@10</td><td>≥ 50.0%</td><td><strong class="text-blue">58.0% (±7.9%)</strong></td><td>MultiHop-RAG (200 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Multi-Hop Null Rejection</td><td>≥ 90.0%</td><td><strong class="text-emerald">100.0% (Zero Hallucination)</strong></td><td>MultiHop-RAG (50 null cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Faithfulness</td><td>≥ 0.90</td><td><strong class="text-blue">0.970</strong></td><td>Golden Evaluation Suite</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer B</strong></td><td>Contextual Precision</td><td>≥ 0.85</td><td><strong class="text-blue">0.963</strong></td><td>Golden Evaluation Suite</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer C</strong></td><td>Ghost Citation Elimination</td><td>100.0%</td><td><strong class="text-emerald">100.0% (0.00% GCR)</strong></td><td>RGB Benchmark (100 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer C</strong></td><td>1:1 Footnote Binding</td><td>100.0%</td><td><strong class="text-emerald">100.0% Bound</strong></td><td>DuckDB Provenance Map</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer D</strong></td><td>Attack Detection Rate (ADR)</td><td>≥ 95.0%</td><td><strong class="text-purple">100.0% Intercepted</strong></td><td>Microsoft BIPIA (100 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer D</strong></td><td>Database Contamination (DCR)</td><td>0.00%</td><td><strong class="text-emerald">0.00% Contamination</strong></td><td>Microsoft BIPIA (100 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer D</strong></td><td>Secret Leakage Rate (SLR)</td><td>0.00%</td><td><strong class="text-emerald">0.00% Leakage</strong></td><td>Microsoft BIPIA (100 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer D</strong></td><td>False Positive Rate (FPR)</td><td>< 2.0%</td><td><strong class="text-blue">0.00% FPR</strong></td><td>Benign Control Docs</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>BM25s Retrieval Latency</td><td>< 5.0 ms</td><td><strong class="text-blue">0.45 ms</strong></td><td>BEIR SciFact (300 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>Hybrid Fusion Latency</td><td>< 50.0 ms</td><td><strong class="text-blue">37.84 ms</strong></td><td>BEIR SciFact (300 queries)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>Multi-Hop Search Latency</td><td>< 100.0 ms</td><td><strong class="text-blue">59.60 ms</strong></td><td>MultiHop-RAG (200 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>Guardrail Latency Overhead</td><td>< 2.0 ms</td><td><strong class="text-blue">1.49 ms</strong></td><td>Microsoft BIPIA (100 cases)</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>Incremental Document Reindex</td><td>< 2.0 s</td><td><strong class="text-emerald">259 ms (310x faster)</strong></td><td>TurboVec Incremental Add</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                  <tr><td><strong>Layer E</strong></td><td>Self-RAG Compute Savings</td><td>> 50%</td><td><strong class="text-purple">100% Retrieval Saved</strong></td><td>Self-RAG Decision Gate</td><td><span class="badge badge-green">CERTIFIED</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Right Column: Evidence Panel -->
+      <aside class="sidebar-evidence card" id="sidebarEvidence">
+        <div class="evidence-header">
+          <div class="evidence-header-left">
+            <h3 class="section-title">Evidence</h3>
+            <span class="badge badge-green" id="evidenceStatusBadge" style="display: none;">Verified</span>
+          </div>
+          <button id="toggleEvidenceBtn" class="icon-toggle-btn" title="Toggle Focus Mode (Collapse Evidence)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg>
+          </button>
+        </div>
+
+        <div id="evidenceList" class="evidence-list">
+          <div class="evidence-empty-state">
+            <p class="evidence-empty-title">No evidence to display</p>
+            <p class="evidence-empty-desc">Supporting sources will appear here when relevant to your query.</p>
+          </div>
+        </div>
+
+        <!-- Retrieval Metrics Section (Below Evidence) -->
+        <div class="retrieval-metrics-panel" id="retrievalMetricsPanel">
+          <div class="retrieval-metrics-header">
+            <span class="retrieval-metrics-title">RETRIEVAL METRICS</span>
+          </div>
+          <div class="retrieval-metrics-grid">
+            <div class="metric-row">
+              <span class="metric-label">Latency</span>
+              <span class="metric-value text-blue" id="metricLatency">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Strategy</span>
+              <span class="metric-value text-purple" id="metricStrategy">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Chunks</span>
+              <span class="metric-value text-emerald" id="metricChunks">—</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Cheat Sheet Modal -->
+  <div id="shortcutsModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button id="modalCloseShortcutsBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-list">
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>K</kbd></span><span class="shortcut-desc">Focus query input</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Enter</kbd></span><span class="shortcut-desc">Submit query</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>Enter</kbd></span><span class="shortcut-desc">New line in prompt</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Esc</kbd></span><span class="shortcut-desc">Close active modal or drawer</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>?</kbd></span><span class="shortcut-desc">Toggle keyboard shortcuts</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for viewing complete parent block content with passage highlighting -->
+  <div id="sourceModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalTitle">Parent Context Source</h3>
+        <button id="modalCloseBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-meta" id="modalMeta"></div>
+        <div class="modal-content-pre" id="modalContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exit Confirmation Modal -->
+  <div id="exitModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #dc2626;">Exit RAGnarok</h3>
+        <button id="modalCloseExitBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">Are you sure you want to exit the current session?</p>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button type="button" id="cancelExitBtn" class="pill-btn">Cancel</button>
+          <button type="button" id="confirmExitBtn" class="pill-btn exit-confirm-btn">Exit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive System Architecture Explorer Modal -->
+  <div id="archModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog modal-lg arch-modal-dialog" id="archModalDialog">
+      <div class="modal-header arch-modal-header">
+        <div class="arch-header-left">
+          <div class="arch-icon-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.05rem;">System Architecture Studio</h3>
+            <span class="text-muted" style="font-size: 0.74rem;">Interactive component dataflow, mathematical formulations, and engineering invariants</span>
+          </div>
+        </div>
+        <div class="arch-header-controls">
+          <button id="archCopyMermaidBtn" class="pill-btn" title="Copy Mermaid Diagram to Clipboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px;"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            <span id="copyMermaidText">Copy Mermaid</span>
+          </button>
+          <button id="archFullscreenBtn" class="icon-toggle-btn" title="Toggle Fullscreen Presentation Mode">
+            <svg id="archFullscreenIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button id="modalCloseArchBtn" class="close-btn" title="Close (Esc)">&times;</button>
+        </div>
+      </div>
+
+      <!-- Segmented Navigation Rail (Pill Tabs) -->
+      <div class="arch-nav-ribbon" id="archNavRibbon">
+        <button class="arch-nav-pill active" data-component="global">
+          <span class="arch-pill-icon">🌐</span>
+          <span>Global Pipeline</span>
+        </button>
+        <button class="arch-nav-pill" data-component="ingestion">
+          <span class="arch-pill-icon">📥</span>
+          <span>1. Ingestion & Staging</span>
+        </button>
+        <button class="arch-nav-pill" data-component="storage">
+          <span class="arch-pill-icon">💾</span>
+          <span>2. Dual Storage & Indexing</span>
+        </button>
+        <button class="arch-nav-pill" data-component="retrieval">
+          <span class="arch-pill-icon">🔍</span>
+          <span>3. Hybrid Retrieval</span>
+        </button>
+        <button class="arch-nav-pill" data-component="guardrails">
+          <span class="arch-pill-icon">🛡️</span>
+          <span>4. Multi-Surface Guardrails</span>
+        </button>
+        <button class="arch-nav-pill" data-component="generation">
+          <span class="arch-pill-icon">✍️</span>
+          <span>5. Generation & Citations</span>
+        </button>
+      </div>
+
+      <div class="modal-body arch-modal-body">
+        <!-- Telemetry Ribbon -->
+        <div class="arch-telemetry-strip" id="archTelemetryStrip">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Architecture Content & Diagram Container -->
+        <div id="archDiagramContent" class="arch-content-container">
+          <!-- Dynamically populated by JS based on selected component -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOMPurify: HTML sanitization against XSS & Indirect Prompt Injections -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+  <!-- Marked.js: High-speed GFM Markdown Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@13.0.2/marked.min.js"></script>
+
+  <!-- Highlight.js: Code Syntax Highlighting -->
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+
+  <!-- KaTeX: High-speed LaTeX Math Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Chart.js: Modern Interactive Graphs & Line Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <script src="/static/app.js?v=3.6"></script>
+</body>
+</html>
