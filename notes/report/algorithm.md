@@ -1,16 +1,16 @@
 # Native Guardrail Algorithms in RAGnarok
 
 > **Target File:** `notes/report/algorithm.md`  
-> **Scope:** Clean, isolated algorithms for each native guardrail layer with operational explanations, visual flowcharts, formal mathematical equations, and preview-compatible pseudocode.
+> **Scope:** Clean, isolated algorithmic definitions for each native subsystem with operational explanations, Mermaid flowcharts, formal mathematical equations, and preview-compatible pseudocode for academic defense and research reporting.
 
 ---
 
-## 1. Input Gateway Fast-Path Guardrail
+## 1. Input Gateway Fast-Path & Self-RAG Classification
 
 ### Explanation
 The Input Gateway Fast-Path Guardrail functions as an ultra-low-latency deterministic firewall ($< 1.0\text{ ms}$) intercepting adversarial queries *before* dense vector embeddings or database retrieval occur. 
 
-Incoming queries first undergo token-length bounding to drop context-stuffing denial-of-service attempts. The query then passes through a four-stage recursive de-obfuscation pipeline: in-place Base64 extraction, URL percent decoding, Unicode normalization (NFKD) with zero-width character stripping, and leetspeak substitution. Finally, a compiled regex engine screens against prompt injections, DAN persona switches, and chat template delimiter escapes. Intercepting threats at this layer saves approximately **92% of downstream compute costs**.
+Incoming queries first undergo token-length bounding to drop context-stuffing denial-of-service attempts. The query then passes through a four-stage recursive de-obfuscation pipeline: in-place Base64 extraction, URL percent decoding, Unicode normalization (NFKD) with zero-width character stripping, and leetspeak substitution. Next, Shannon entropy is calculated to detect encrypted or compressed shellcode payloads. The canonicalized query is evaluated against compiled regex injection heuristics. Queries that pass security are routed through the Self-RAG classifier, which determines whether retrieval is necessary or if the query can be resolved via parametric generation (saving 100% of retrieval compute).
 
 ### Flowchart
 
@@ -23,11 +23,13 @@ flowchart TD
     D --> E["URL Percent Decoding"]
     E --> F["Unicode NFKD & Strip Zero-Width"]
     F --> G["Leetspeak Character Normalization"]
-    G --> H{"Match Heuristic Injection Regex?"}
-    H -- "Yes" --> R2["Refusal: INJECTION_ATTACK_INTERCEPTED"]
-    H -- "No" --> I{"Semantic Intent Score < Threshold (0.25)?"}
-    I -- "Yes" --> R3["Refusal: OFF_TOPIC_REJECT"]
-    I -- "No" --> J["Pass Canonical Query (q_canon) to Retrieval"]
+    G --> H{"Shannon Entropy H(X) > 4.8?"}
+    H -- "Yes" --> R2["Refusal: HIGH_ENTROPY_ANOMALY"]
+    H -- "No" --> I{"Match Heuristic Injection Regex?"}
+    I -- "Yes" --> R3["Refusal: INJECTION_ATTACK_INTERCEPTED"]
+    I -- "No" --> J{"Self-RAG: Retrieval Required?"}
+    J -- "No (Greeting/Parametric)" --> K["Direct Generation (Bypass Retrieval)"]
+    J -- "Yes (Corpus Query)" --> L["Pass Canonical Query (q_canon) to Hybrid Retrieval"]
 ```
 
 ### Mathematical Formulation
@@ -35,25 +37,28 @@ Let the inbound raw query be $q_{\text{raw}} \in \Sigma^*$ over character alphab
 
 $$q_{\text{canon}} = \mathcal{T}_{\text{leet}} \circ \mathcal{T}_{\text{unicode}} \circ \mathcal{T}_{\text{url}} \circ \mathcal{T}_{\text{b64}}(q_{\text{clean}})$$
 
+Character Shannon entropy $H(q_{\text{canon}})$ evaluates randomness across character frequencies $P(x_i)$:
+
+$$H(q_{\text{canon}}) = -\sum_{i=1}^{n} P(x_i) \log_2 P(x_i)$$
+
 The fast-path gate decision function $\mathcal{G}_{\text{input}}(q_{\text{raw}})$ is defined by:
 
 $$\mathcal{G}_{\text{input}}(q_{\text{raw}}) = \begin{cases} 
 \Omega_{\text{ref}}(\text{"TOKEN\_LIMIT"}) & \text{if } |q_{\text{raw}}|_{\text{tok}} > T_{\max} \\ 
+\Omega_{\text{ref}}(\text{"ENTROPY\_ANOMALY"}) & \text{if } H(q_{\text{canon}}) > \tau_{\text{entropy}} \\ 
 \Omega_{\text{ref}}(\text{"INJECTION"}) & \text{if } \exists p \in \mathcal{P}_{\text{fast}} : \text{Match}(p, q_{\text{canon}}) = 1 \\ 
-\Omega_{\text{ref}}(\text{"OFF\_TOPIC"}) & \text{if } s_{\text{intent}}(q_{\text{canon}}) < \theta_{\text{top}} \\ 
+\text{DIRECT\_GENERATE} & \text{if } \mathcal{C}_{\text{self\_rag}}(q_{\text{canon}}) = \text{Parametric} \\ 
 q_{\text{canon}} & \text{otherwise} 
 \end{cases}$$
-
-where $T_{\max} = 1024$ tokens and $\theta_{\text{top}} = 0.25$ represents the topicality threshold.
 
 ### Algorithm
 
 ```text
-Algorithm 1: Input Gateway Fast-Path Guardrail
+Algorithm 1: Input Gateway Fast-Path & Self-RAG Classification
 ────────────────────────────────────────────────────────────────────────────────
 Input:  Raw query string q_raw, maximum token ceiling T_max = 1024,
-        heuristic pattern set P_fast, topicality threshold theta_top = 0.25
-Output: Canonical query q_canon or Refusal directive
+        entropy threshold tau_entropy = 4.8, heuristic pattern set P_fast
+Output: Canonical query q_canon, DIRECT_GENERATE signal, or Refusal directive
 ────────────────────────────────────────────────────────────────────────────────
  1: token_count ← CountTokens(q_raw)
  2: if token_count > T_max then
@@ -66,18 +71,21 @@ Output: Canonical query q_canon or Refusal directive
  9: q_deobf ← StripZeroWidth(UnicodeNormalizeNFKD(q_deobf))
 10: q_canon ← LeetspeakSubstitute(q_deobf)
 11:
-12: for each pattern p in P_fast do
-13:     if RegexMatch(p, q_canon) is not empty then
-14:         return Refusal("INJECTION_ATTACK_INTERCEPTED")
-15:     end if
-16: end for
-17:
-18: intent_score ← ClassifySemanticIntent(q_canon)
-19: if intent_score < theta_top then
-20:     return Refusal("OFF_TOPIC_REJECT")
-21: end if
-22:
-23: return q_canon
+12: if ComputeShannonEntropy(q_canon) > tau_entropy then
+13:     return Refusal("HIGH_ENTROPY_ANOMALY")
+14: end if
+15:
+16: for each pattern p in P_fast do
+17:     if RegexMatch(p, q_canon) is not empty then
+18:         return Refusal("INJECTION_ATTACK_INTERCEPTED")
+19:     end if
+20: end for
+21:
+22: if IsParametricGreetingOrMath(q_canon) then
+23:     return Signal("DIRECT_GENERATE")
+24: end if
+25:
+26: return q_canon
 ```
 
 ---
@@ -85,27 +93,28 @@ Output: Canonical query q_canon or Refusal directive
 ## 2. Ingestion & Knowledge Vault Quarantine Guardrail
 
 ### Explanation
-The Ingestion & Quarantine Guardrail secures the knowledge base against Indirect Prompt Injection (IPI) and poisoned document payloads. When external documents (PDFs, Markdown, Text) are submitted for ingestion, `PyMuPDF4LLM` extracts structural Markdown while preserving headers and tables. 
+The Ingestion & Quarantine Guardrail secures the knowledge base against Indirect Prompt Injection (IPI) and poisoned document payloads. When external documents (PDFs, Markdown, Text) are submitted for ingestion, `PyMuPDF` extracts structural Markdown while preserving headers and tables. 
 
-Before text is segmented into chunks or vectorized into TurboVec, the `DocumentSecurityGuard` performs in-memory signature screening across the full text for instruction overrides, payload delimiters, and exfiltration webhooks. If an injection directive is identified, the file is immediately diverted into `data/quarantine/<file>`, an immutable forensic JSON audit sidecar is generated with the SHA-256 fingerprint, and ingestion terminates. This guarantees exactly **0 parent rows** written to DuckDB and **0 child vectors** written to TurboVec ($\text{DCR} = 0.00\%$).
+Before text is segmented into chunks or vectorized into TurboVec, the `DocumentSecurityGuard` performs in-memory signature screening across the full text for instruction overrides, payload delimiters, and exfiltration webhooks. If an injection directive is identified, the file is immediately diverted into `data/quarantine/<file>`, an immutable forensic JSON audit sidecar is generated with the SHA-256 fingerprint, and ingestion terminates. This guarantees exactly **0 parent rows** written to DuckDB and **0 child vectors** written to TurboVec ($\text{DCR} = 0.00\%$). Clean documents undergo cryptographic SHA-256 deduplication and 259ms incremental indexing.
 
 ### Flowchart
 
 ```mermaid
 flowchart TD
     A["Inbound Document (d_file)"] --> B["Compute SHA-256 Checksum"]
-    B --> C["PyMuPDF4LLM Markdown Extraction"]
-    C --> D{"Detect IPI Threat Signatures?"}
-    D -- "Threat Detected" --> E["Move to data/quarantine/"]
-    E --> F["Write Forensic JSON Sidecar Audit Log"]
-    F --> G["Halt Ingestion (DCR = 0.00%)"]
-    D -- "Clean Document" --> H["Segment AST Sections (1024 tokens)"]
-    H --> I["Insert Parent Chunks into DuckDB Vault"]
-    I --> J["Sliding Window Child Chunks (256 / 64)"]
-    J --> K["Index Lexical Tokens into BM25s"]
-    J --> L["FastEmbed ONNX & Index Vectors into TurboVec"]
-    K --> M["Ingestion Complete (DCR = 0.00%)"]
-    L --> M
+    B --> C{"Hash Exists in DuckDB?"}
+    C -- "Yes" --> D["Skip Idempotently (200 OK)"]
+    C -- "No" --> E["PyMuPDF Markdown Extraction"]
+    E --> F{"Detect IPI Threat Signatures?"}
+    F -- "Threat Detected" --> G["Move to data/quarantine/"]
+    G --> H["Write Forensic JSON Sidecar Audit Log"]
+    H --> I["Halt Ingestion (DCR = 0.00%)"]
+    F -- "Clean Document" --> J["Segment Hierarchical Chunks (512 / 64)"]
+    J --> K["Commit Parent & Chunks to DuckDB Vault"]
+    K --> L["Update BM25s Sparse Index (0.45 ms)"]
+    K --> M["Incremental Append to TurboVec via FastEmbed (259 ms)"]
+    L --> N["Ingestion Complete (DCR = 0.00%)"]
+    M --> N
 ```
 
 ### Mathematical Formulation
@@ -127,27 +136,29 @@ Input:  Inbound document file d_file, relational vault V (DuckDB),
 Output: Ingestion status and DCR metric
 ────────────────────────────────────────────────────────────────────────────────
  1: file_hash ← ComputeSHA256(ReadRawBytes(d_file))
- 2: doc_text ← PyMuPDF4LLM_ExtractMarkdown(d_file)
- 3: detected_threats ← FindMatches(P_IPI, doc_text)
- 4:
- 5: if detected_threats is not empty then
- 6:     MoveFile(d_file, "data/quarantine/" + GetFileName(d_file))
- 7:     WriteJSON("data/quarantine/" + GetFileName(d_file) + ".json", {
- 8:         "sha256": file_hash,
- 9:         "threats": detected_threats,
-10:         "timestamp": CurrentTimestamp()
-11:     })
-12:     return { status: "QUARANTINED", DCR: "0.00%" }
-13: end if
-14:
-15: parent_chunks ← SegmentASTSections(doc_text, window_size = 1024)
-16: V.InsertParentChunks(parent_chunks)
-17:
-18: child_chunks ← SlidingWindow(parent_chunks, window_size = 256, overlap = 64)
-19: I_lex.IndexTokens(child_chunks)
-20: I_dense.IndexVectors(FastEmbed(child_chunks))
-21:
-22: return { status: "INDEXED", DCR: "0.00%" }
+ 2: if V.DocumentExistsByHash(file_hash) then
+ 3:     return { status: "DUPLICATE_SKIPPED", DCR: "0.00%" }
+ 4: end if
+ 5:
+ 6: doc_text ← PyMuPDF_ExtractMarkdown(d_file)
+ 7: detected_threats ← FindMatches(P_IPI, doc_text)
+ 8:
+ 9: if detected_threats is not empty then
+10:     MoveFile(d_file, "data/quarantine/" + GetFileName(d_file))
+11:     WriteJSON("data/quarantine/" + GetFileName(d_file) + ".json", {
+12:         "sha256": file_hash,
+13:         "threats": detected_threats,
+14:         "timestamp": CurrentTimestamp()
+15:     })
+16:     return { status: "QUARANTINED", DCR: "0.00%" }
+17: end if
+18:
+19: chunks ← HierarchicalChunk(doc_text, size = 512, overlap = 64)
+20: V.AtomicCommit(d_file, chunks)
+21: I_lex.AddTokens(chunks)
+22: I_dense.IncrementalAdd(FastEmbed(chunks))
+23:
+24: return { status: "INDEXED", DCR: "0.00%" }
 ```
 
 ---
@@ -237,9 +248,9 @@ Output: Sanitized real-time token stream with SLR = 0.00%
 ### Explanation
 The Grounding & Citation Integrity Guardrail eliminates factual hallucinations and phantom citations post-generation. 
 
-Before presenting answers to the user, the guardrail performs entailment verification against retrieved context chunks. If retrieval confidence is low (cross-encoder score $< \theta_{\text{conf}}$) or evidence is insufficient, the system suppresses speculative text and emits the standardized refusal directive (`UNGROUNDED_VIOLATION_MESSAGE`). 
+Before presenting answers to the user, the guardrail performs entailment verification against retrieved context chunks. If retrieval confidence is low or evidence is insufficient, the system suppresses speculative text and emits the standardized refusal directive (`UNGROUNDED_VIOLATION_MESSAGE`). 
 
-For grounded responses, an inline citation parser identifies all bracketed numerical citations (`\[([0-9]+)\]`). Each marker is verified 1:1 against the runtime provenance map assembled during context construction. If the model hallucinates an unbacked citation (e.g., `[99]`), the ghost marker is stripped from the text and logged as an anomaly, guaranteeing a **$100.0\%$ Ghost Elimination Rate ($\text{GER}$)**.
+For grounded responses, an inline citation parser identifies all bracketed numerical citations (`\[([0-9]+)\]`). Each marker is verified 1:1 against the runtime provenance map assembled during Context Assembly. If the model hallucinates an unbacked citation (e.g., `[99]`), the ghost marker is stripped from the text and logged as an anomaly, guaranteeing a **$0.00\%$ Ghost Citation Rate ($\text{GCR}$)**.
 
 ### Flowchart
 
@@ -257,20 +268,20 @@ flowchart TD
     H --> I
     I -- "Yes" --> D
     I -- "No" --> J["Deduplicate Verified Sources by Document ID"]
-    J --> K["Return Verified Response & Clean Citations (GER = 100.0%)"]
+    J --> K["Return Verified Response & Clean Citations (GCR = 0.00%)"]
 ```
 
 ### Mathematical Formulation
-Let candidate response $Y$ and context chunks $\mathcal{C} = \{c_1, \dots, c_k\}$ have cross-encoder relevance score $s_{\text{cross}}(Y, \mathcal{C})$. The factual entailment decision $\mathcal{E}(Y, \mathcal{C})$ requires:
+Let candidate response $Y$ and context chunks $\mathcal{C} = \{c_1, \dots, c_k\}$ have relevance score $s(Y, \mathcal{C})$. The factual entailment decision $\mathcal{E}(Y, \mathcal{C})$ requires:
 
 $$\mathcal{E}(Y, \mathcal{C}) = \begin{cases} 
-1 & \text{if } s_{\text{cross}}(Y, \mathcal{C}) \ge \theta_{\text{conf}} \;\land\; \text{Entails}(\mathcal{C}, Y) = \text{True} \\ 
+1 & \text{if } s(Y, \mathcal{C}) \ge \theta_{\text{conf}} \;\land\; \text{Entails}(\mathcal{C}, Y) = \text{True} \\ 
 0 & \text{otherwise} 
 \end{cases}$$
 
-Given extracted citation indices $\mathcal{M}_{\text{cite}} = \{m \in \mathbb{N} \mid [m] \in Y\}$ and the domain of active provenance mapping $\text{Dom}(\text{ProvMap})$, the Ghost Elimination Rate ($\text{GER}$) satisfies:
+Given extracted citation indices $\mathcal{M}_{\text{cite}} = \{m \in \mathbb{N} \mid [m] \in Y\}$ and the domain of active provenance mapping $\text{Dom}(\text{ProvMap})$, the Ghost Citation Rate ($\text{GCR}$) satisfies:
 
-$$\text{GER} = \frac{|\{m \in \mathcal{M}_{\text{cite}} \mid m \notin \text{Dom}(\text{ProvMap}) \;\land\; \text{Stripped}(m)\}|}{|\{m \in \mathcal{M}_{\text{cite}} \mid m \notin \text{Dom}(\text{ProvMap})\}|} = 100.0\%$$
+$$\text{GCR} = \frac{|\{m \in \mathcal{M}_{\text{cite}} \mid m \notin \text{Dom}(\text{ProvMap})\}|}{|\mathcal{M}_{\text{cite}}|} = 0.00\%$$
 
 ### Algorithm
 

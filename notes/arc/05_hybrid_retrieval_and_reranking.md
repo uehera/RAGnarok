@@ -2,20 +2,21 @@
 
 > **Lifecycle Stage:** Step 2 in Read Path (Query Pipeline)  
 > **Source Module:** `src/ragnarok/retrieval/pipeline.py`, `src/ragnarok/retrieval/reranker.py`  
-> **Responsibility:** Multi-index candidate retrieval, Reciprocal Rank Fusion, and Cross-Encoder relevance scoring.
+> **Responsibility:** Multi-index candidate retrieval, Reciprocal Rank Fusion ($k=60$), and Pareto frontier optimization.
 
 ---
 
-## 1. Architectural Problem: Search Modality Trade-offs
+## 1. Architectural Problem: Search Modality Trade-offs & Compute Clifts
 
 Neither dense vector search nor lexical search is sufficient on its own:
-* **Dense Retrieval Alone:** Excellent at conceptual mapping and synonyms, but struggles with specific numbers, exact alphanumeric identifiers, function names, and rare jargon.
-* **Lexical Retrieval Alone:** Excels at keyword precision, but fails when user questions use different phrasing or synonyms than the stored documents.
-* **Distractor Passages:** Even when candidate retrieval succeeds, top results often include "distractor passages"—chunks that share keywords with the query but do not contain the answer. When fed to an LLM, distractor chunks cause context distraction and hallucinations.
+* **Dense Retrieval Alone:** Excellent at conceptual mapping and synonyms, but misses specific alphanumeric identifiers, error codes, and technical acronyms.
+* **Lexical Retrieval Alone:** Excels at keyword precision in $0.45\text{ ms}$, but fails when user questions use different phrasing or synonyms than the stored documents.
+* **The Cross-Encoder Compute Cliff:** While cross-encoders theoretically re-score token-to-token cross-attention, in practice evaluating a 12-layer model adds $2,400$–$2,700\text{ ms}$ of latency per query.
 
-RAGnarok implements a **Two-Stage Hybrid Search & Reranking Pipeline**:
-1. **Stage 1 (Parallel Hybrid Retrieval):** BM25s and TurboVec search concurrently, merged via **Reciprocal Rank Fusion (RRF, $k=60$)** into a candidate pool ($N = 15$).
-2. **Stage 2 (Cross-Encoder Reranking):** A cross-encoder model (`FlashRank`) evaluates token-to-token attention between query and candidate, filtering distractor passages to produce the top 10 relevant chunks.
+RAGnarok resolves these trade-offs through an **Asynchronous Parallel Hybrid Search Engine**:
+1. BM25s (lexical) and TurboVec (dense) run concurrently in parallel threads.
+2. Results are fused using **Reciprocal Rank Fusion (RRF, $k=60$)** into a unified candidate pool.
+3. Cross-Encoder reranking is optional and disabled by default because empirical Pareto frontier testing proves Hybrid RRF achieves peak retrieval quality without incurring the 2.5-second compute penalty.
 
 ---
 
@@ -25,23 +26,23 @@ RAGnarok implements a **Two-Stage Hybrid Search & Reranking Pipeline**:
 flowchart TD
     Q["Sanitized Query<br>(from 04_input_guardrail)"] --> DUAL["Parallel Retrieval Coordinator"]
     
-    subgraph Stage1["Stage 1: Parallel Search & RRF Fusion"]
-        DUAL --> BM["Lexical Search (BM25s)<br>Queries data/indexes/bm25/<br>Returns: Top-K Lexical Chunks"]
-        DUAL --> EMB["FastEmbed Embedding<br>BAAI/bge-small-en-v1.5 (384-d)"]
-        EMB --> TV["Dense Search (TurboVec)<br>Cosine Inner Product<br>Returns: Top-K Dense Chunks"]
+    subgraph Stage1["Stage 1: Parallel Search Fanout"]
+        DUAL --> BM["Lexical Search (BM25s)<br>Queries data/indexes/bm25s/<br>Latency: 0.45 ms"]
+        DUAL --> EMB["FastEmbed ONNX<br>BAAI/bge-small-en-v1.5 (384-d)"]
+        EMB --> TV["Dense Search (TurboVec)<br>Cosine Inner Product<br>Latency: 37.31 ms"]
         
         BM --> RRF["Reciprocal Rank Fusion Engine<br>Formula: score = sum(1 / (60 + rank))"]
         TV --> RRF
         
-        RRF --> POOL["Merged Candidate Pool<br>(Top 15 Deduplicated Chunks)"]
+        RRF --> POOL["Merged Candidate Pool<br>(Top 50 Deduplicated Chunks)<br>Total Latency: 37.84 ms"]
     end
     
-    subgraph Stage2["Stage 2: Cross-Encoder Distractor Pruning"]
-        POOL --> CE["Cross-Encoder Reranker (FlashRank)<br>Computes Full Token-to-Token Attention:<br>[CLS] Query [SEP] Chunk Text [SEP]"]
-        CE --> TOP10["Top 10 Calibrated Chunks<br>(High-Confidence Candidates)"]
+    subgraph Stage2["Stage 2: Pareto Optimal Evaluation"]
+        POOL --> DECIDE{"Cross-Encoder Enabled?<br>(Config Toggle)"}
+        DECIDE -- "False (Default: Pareto Optimal)" --> PASS["Direct Dispatch to 06_context_assembly<br>Latency: 37.84 ms | nDCG@10: 0.7332"]
+        DECIDE -- "True (Compute Cliff)" --> CE["FlashRank Cross-Encoder<br>Full Token-to-Token Attention<br>Latency: 2486.47 ms | nDCG@10: 0.7087"]
+        CE --> PASS
     end
-    
-    TOP10 --> DISPATCH["Dispatched to 06_context_assembly"]
 ```
 
 ---
@@ -49,25 +50,30 @@ flowchart TD
 ## 3. Technical Invariants & Ranking Mechanics
 
 ### 3.1 Parallel Search Execution
-* **Concurrency:** The lexical and dense searches run in parallel threads.
-* **Dense Search:** FastEmbed projects the query into a 384-dimensional normalized vector, and TurboVec computes inner products against the pre-indexed child vector matrix in $< 45\text{ ms}$.
-* **Lexical Search:** BM25s matches query terms against the inverted index in $< 10\text{ ms}$.
+* **Concurrency:** The lexical and dense searches run concurrently using asynchronous fanout.
+* **Dense Search:** FastEmbed projects the query into a 384-dimensional normalized vector, and TurboVec computes inner products against the pre-indexed child vector matrix in $\sim 37.3\text{ ms}$.
+* **Lexical Search:** BM25s matches query terms against the inverted index in $\sim 0.45\text{ ms}$.
 
-### 3.2 Reciprocal Rank Fusion (RRF)
+### 3.2 Reciprocal Rank Fusion (RRF $k=60$)
 Merging raw scores from BM25 (unbounded positive floats) and TurboVec (cosine similarity $[0.0, 1.0]$) via linear combination requires fragile heuristic weights. RAGnarok uses **Reciprocal Rank Fusion (RRF)**, which relies on relative rank positions rather than arbitrary score magnitudes:
 
 $$\text{RRF Score}(d) = \sum_{m \in \{\text{lexical}, \text{dense}\}} \frac{1}{k + r_m(d)}$$
 
-* **Smoothing Constant:** $k = 60$ prevents top-ranked outliers from dominating the scoring pool.
+* **Smoothing Constant ($k = 60$):** Prevents top-ranked outliers from dominating the scoring pool.
 * **Deduplication:** Chunks appearing in both lexical and dense top results receive combined reciprocal scores, naturally boosting high-confidence consensus candidates.
-* **Pool Size:** Selects the top $N = 15$ candidates for stage-two reranking.
 
-### 3.3 Cross-Encoder Reranking (`FlashRank`)
-* **Mechanism:** Unlike bi-encoders that process query and passage independently, the cross-encoder concatenates both:
-  $$\text{Input} = \text{[CLS]} \, \text{Query} \, \text{[SEP]} \, \text{Chunk Text} \, \text{[SEP]}$$
-  Full self-attention across every query token and passage token evaluates semantic entailment.
-* **Distractor Pruning:** Chunks with high keyword overlap but zero actual answer relevance are penalized and pruned.
-* **Output:** Yields the top 10 ranked chunks with calibrated relevance scores $[0.0, 1.0]$.
+### 3.3 Latency vs. Quality Pareto Frontier Analysis
+On the official BEIR SciFact benchmark (300 test queries against 5,183 abstracts), the strategies compare as follows:
+
+| Strategy | Recall@10 | MRR@10 | nDCG@10 | Mean Latency | Efficiency Finding |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **BM25s Lexical** | 0.8287 | 0.6502 | 0.6889 | **0.45 ms** | Sub-millisecond keyword lookup |
+| **TurboVec Dense** | 0.8452 | 0.6847 | 0.7203 | 37.31 ms | Strong semantic capture |
+| **Hybrid RRF ($k=60$)** | **0.8511** | **0.7018** | **0.7332** | **37.84 ms** | **Global Optimum (Peak Accuracy + Sub-40ms)** |
+| **Hybrid + Cross-Encoder** | **0.8511** | 0.6701 | 0.7087 | 2486.47 ms | Compute Cliff ($65.7\times$ slower, no quality gain) |
+
+> [!NOTE]
+> **Key Architectural Takeaway:** Hybrid RRF reaches peak retrieval accuracy ($0.7332\text{ nDCG}$) at $37.84\text{ms}$. Adding a Cross-Encoder imposes a 2.5-second compute penalty while actually reducing nDCG to $0.7087$ due to score distortion on scientific claims. Hybrid RRF without Cross-Encoder represents the true Pareto frontier.
 
 ---
 
@@ -75,6 +81,6 @@ $$\text{RRF Score}(d) = \sum_{m \in \{\text{lexical}, \text{dense}\}} \frac{1}{k
 
 | Failure Mode | Trigger Scenario | Architectural Mitigation |
 | :--- | :--- | :--- |
-| **Empty Index Match** | Query contains terms completely missing from corpus. | RRF handles empty sets gracefully; candidate pool is populated by whichever modality returns hits. |
-| **All Cross-Encoder Scores Low** | Retrieved passages are unrelated to the inquiry ($< 0.2$ score). | Downstream context expander flags low retrieval confidence, priming the generator for safe refusal. |
-| **Reranker Timeout** | Heavy system load delays cross-encoder inference. | Fallback pipeline returns top RRF candidates directly, bypassing reranking to preserve SLA latency. |
+| **Empty Lexical Match** | Query contains conceptual words not present in indexed text. | RRF handles empty sets gracefully; candidate pool is populated by dense vector search hits. |
+| **Zero Semantic Vector Overlap** | Query contains exact code identifiers or serial numbers. | BM25s rescues exact matches in 0.45ms, ranking them at the top of the fused pool. |
+| **Heavy Server Load** | Multiple concurrent queries received via SSE stream. | TurboVec memory-mapped search operates read-only with zero database locking. |

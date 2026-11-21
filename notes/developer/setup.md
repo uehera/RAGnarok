@@ -1,45 +1,48 @@
-# Developer Setup & Environment Initialization (WSL & Windows Bash)
+# Developer Setup & Complete Environment Initialization
 
-> **Target Directory:** `notes/developer/setup.md`  
-> **Supported Environments:** WSL 2 (Ubuntu 22.04 / 24.04 LTS) and Windows 10/11 native via Bash (Git Bash / MSYS2).  
-> **Scope:** Practical bootstrap guide, cross-platform toolchain installation, configuration examples, and environment validation.
+> **Target File:** `notes/developer/setup.md`  
+> **Supported Environments:** Linux / WSL 2 (Ubuntu 22.04 / 24.04 LTS) and Windows 10/11 Native (Git Bash / PowerShell).  
+> **Scope:** Definitive step-by-step guide to installing dependencies, configuring secrets, provisioning DuckDB and search indexes, verifying system diagnostics, and launching both terminal and Web UI interfaces.
 
 ---
 
 ## 1. Setup Architecture Overview
 
 ```mermaid
-flowchart LR
-    A["WSL (Ubuntu) / Windows (Git Bash)"] --> B["Install Toolchain<br>(uv & Python 3.12)"]
-    B --> C["Normalize Git Line Endings<br>(core.autocrlf = false)"]
-    C --> D["Synchronize Dependencies<br>(uv sync --link-mode=copy)"]
-    D --> E["Configure Secrets & Params<br>(.env & config.toml)"]
-    E --> F["Provision Vault & Storage<br>(verify_setup.py)"]
-    F --> G["Execute Diagnostics<br>(rag doctor)"]
+flowchart TD
+    A["System Pre-requisites<br>(Git, Python 3.12, uv)"] --> B["Clone Repository & Disable CRLF<br>(git config core.autocrlf false)"]
+    B --> C["Hydrate Virtualenv via UV<br>(uv sync --link-mode=copy)"]
+    C --> D["Configure Secrets & Engine Parameters<br>(.env & config.toml)"]
+    D --> E["Run System Diagnostics<br>(rag doctor)"]
+    E --> F["Seed Initial Knowledge Corpus<br>(rag ingest ./docs/dataset/)"]
+    F --> G1["Launch Web UI Dashboard<br>(rag ui -> http://127.0.0.1:8000)"]
+    F --> G2["Launch Terminal Chat Shell<br>(rag chat)"]
+    F --> G3["Launch Dev Workspace Deck<br>(rag dev)"]
 ```
 
 ---
 
 ## 2. Platform Compatibility & Path Matrix
 
-| Platform | Shell | Virtualenv Python Path | Storage Directory Style | Recommended Project Path |
+| Platform | Recommended Terminal Shell | Virtualenv Python Path | Storage Directory Style | Recommended Working Directory |
 | :--- | :--- | :--- | :--- | :--- |
-| **WSL 2 (Ubuntu)** | `/bin/bash` | `.venv/bin/python` | Unix forward slashes (`./data`) | `~/Projects/major_project/RAGnarok` *(inside Linux ext4)* |
-| **Windows Native (Git Bash)** | `mintty` / `bash.exe` | `.venv/Scripts/python.exe` | Forward slashes (`./data`) | `C:/Users/<User>/Projects/RAGnarok` |
+| **WSL 2 (Ubuntu)** | `/bin/bash` or `zsh` | `.venv/bin/python` | Linux ext4 forward slashes (`./data`) | `~/Projects/major_project/RAGnarok` *(inside native Linux ext4)* |
+| **Windows Native** | Git Bash (`mintty`) or PowerShell | `.venv/Scripts/python.exe` | Standard forward slashes (`./data`) | `C:/Users/<User>/Projects/RAGnarok` |
 
 > [!IMPORTANT]
-> **WSL Performance Warning:** Never run RAGnarok from a Windows mount path like `/mnt/c/Users/...` in WSL. Accessing Windows NTFS files through WSL 9P protocol creates a **10× to 50× I/O bottleneck** on DuckDB and vector search. Always clone directly into the WSL native filesystem (`~/...`).
+> **WSL File System Performance Rule:** Never place or run RAGnarok inside a Windows mount path such as `/mnt/c/Users/...` when using WSL 2. Cross-boundary 9P translation creates a **10× to 50× I/O performance bottleneck** on DuckDB table scans and memory-mapped index reads. Always clone and execute inside your native Linux home directory (`~/...`).
 
 ---
 
 ## 3. Step-by-Step Installation Walkthrough
 
-### Step 1: Install System Toolchain & `uv`
+### Step 1: Install System Pre-requisites & `uv` Package Manager
 
-#### Option A: WSL 2 (Ubuntu)
-Open your Ubuntu WSL terminal and execute:
+RAGnarok standardizes on **Astral `uv`**, an ultra-fast Rust-based package resolver that installs all virtual environments and dependencies deterministically in seconds.
+
+#### Option A: Linux & WSL 2 (Ubuntu)
 ```bash
-# 1. Update package lists and install build tools
+# 1. Update system packages and install build tools
 sudo apt update && sudo apt install -y curl git build-essential
 
 # 2. Install standalone uv binary
@@ -48,146 +51,131 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 3. Source environment into active shell session
 source "$HOME/.local/bin/env"
 
-# 4. Confirm installation
+# 4. Verify installation
 uv --version
-# Output: uv 0.4.x (or higher)
+# Expected: uv 0.4.x or higher
 ```
 
-#### Option B: Windows via Git Bash
-Open Git Bash (Run as Administrator if restricted) and execute:
+#### Option B: Windows Native (Git Bash or PowerShell)
+In **Git Bash**:
 ```bash
-# 1. Install uv directly from bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Persist uv directory in Git Bash PATH
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-
-# 3. Confirm installation
 uv --version
 ```
-*(Alternatively, execute `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` in PowerShell, then restart Git Bash).*
+In **PowerShell** (Run as Administrator):
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Restart your terminal and verify:
+uv --version
+```
 
 ---
 
-### Step 2: Normalize Git Line Endings (CRLF Prevention)
-Windows Git Bash defaults to converting Linux `\n` to Windows `\r\n`. This carriage-return character corrupts SHA-256 fingerprinting in the ingestion quarantine module (`staging.py`):
+### Step 2: Clone Repository & Normalize Git Line Endings
+
+Windows environments often default to converting Unix line feeds (`\n`) to Windows carriage returns (`\r\n`). In RAGnarok, carriage-return characters corrupt cryptographic SHA-256 deduplication and trigger false positives in quarantine hashing (`staging.py`).
 
 ```bash
-# Navigate to the repository root
-cd /path/to/RAGnarok
+# 1. Clone the repository
+git clone https://github.com/your-username/RAGnarok.git
+cd RAGnarok
 
-# Disable CRLF conversion for this repository
+# 2. Strictly disable CRLF conversion for this repository
 git config --local core.autocrlf false
 
-# Reset existing working tree files to pure LF
+# 3. Reset all checked-out files to clean Unix LF line endings
 git checkout -- .
 ```
 
 ---
 
-### Step 3: Install Python 3.12 & Dependencies with UV
-Execute dependency synchronization. Using `--link-mode=copy` ensures package installation succeeds across cross-filesystem mounts and Windows NTFS junctions:
+### Step 3: Install Python 3.12 & Synchronize Dependencies
+
+Using `--link-mode=copy` ensures package installation succeeds cleanly across cross-filesystem mounts, virtual drives, and NTFS junctions without hardlink permission failures:
 
 ```bash
-uv sync --frozen --link-mode=copy
-```
-
-**Expected Terminal Output:**
-```text
-Resolved 68 packages in 412ms
-Prepared 68 packages in 1.82s
-Installed 68 packages in 2.15s
- + bm25s==0.1.10
- + duckdb==2.0.0
- + fastembed==0.9.1
- + litellm==1.40.0
- + pymupdf==2.1.0
- + turbovec==0.1.0
-```
-
----
-
-### Step 4: Configure Runtime Secrets & Parameters
-
-#### 1. Configure `.env`
-Create your private environment file from the provided template:
-```bash
-cp .env.example .env
-```
-
-Edit `.env` using your preferred terminal editor (`nano .env` or `vim .env`):
-```ini
-# ==============================================================================
-# RAGnarok Environment Secrets
-# ==============================================================================
-
-# Primary Cloud Inference Provider (Groq provides fastest TTFT < 250ms)
-GROQ_API_KEY="gsk_your_groq_api_key_here"
-
-# Alternative Provider: OpenAI
-# OPENAI_API_KEY="sk-proj-your_openai_api_key_here"
-
-# Local Ollama Inference (optional, for fully offline environments)
-# OLLAMA_API_BASE="http://localhost:11434"
-
-# Storage & Runtime Directory Overrides (Use forward slashes for both WSL and Windows)
-RAGNAROK_DATA_DIR="./data"
-RAGNAROK_ENV="development"
-```
-
-#### 2. Configure `config.toml`
-Inspect or adjust operational thresholds in `config.toml`:
-```toml
-[retrieval]
-strategy = "hybrid"         # Options: "hybrid", "dense", "lexical"
-candidate_pool_size = 15    # Top candidates sent to cross-encoder reranker
-final_top_k = 10            # Top chunks returned after reranking
-rrf_k = 60                  # Reciprocal Rank Fusion smoothing parameter
-
-[reranker]
-enabled = true              # Enable FlashRank Cross-Encoder reranking
-model_name = "ms-marco-TinyBERT-L-2-v2"
-
-[guardrails]
-enabled = true
-token_limit = 1024          # Instant reject threshold for context-stuffing DoS
-fast_path_enabled = true    # Sub-millisecond deterministic regex & de-obfuscation
-speculative_window = 35     # Character sliding buffer for streaming redaction
-```
-
----
-
-### Step 5: Initialize Storage Vault & Verify Directories
-Run the setup verification script to create database tables and directory trees:
-
-```bash
-uv run --no-sync python scripts/verify_setup.py
+uv sync --link-mode=copy
 ```
 
 **Expected Output:**
 ```text
-[INFO] Verifying local directory structures...
-[OK] data/db/ verified.
-[OK] data/indexes/bm25/ verified.
-[OK] data/indexes/turbovec/ verified.
-[OK] data/quarantine/ verified.
-[INFO] Checking DuckDB schema initialization...
-[OK] Connected to data/db/ragnarok.duckdb.
-[OK] Schema 'documents' initialized.
-[OK] Schema 'parent_chunks' initialized.
-[SUCCESS] Storage vault initialized successfully.
+Resolved 68 packages in 420ms
+Prepared 68 packages in 1.85s
+Installed 68 packages in 2.10s
+ + bm25s==0.1.10
+ + duckdb==2.0.0
+ + fastembed==0.9.1
+ + fastapi==0.115.0
+ + litellm==1.40.0
+ + pymupdf==2.1.0
+ + turbovec==0.1.0
+ + uvicorn==0.30.6
 ```
 
 ---
 
-### Step 6: Diagnostic Verification (`rag doctor`)
-Execute the built-in diagnostic probe to verify hardware, ONNX runtime, and database accessibility:
+### Step 4: Configure Environment Secrets (`.env`) & Parameters (`config.toml`)
+
+#### 1. Configure `.env`
+Copy the example environment configuration template:
+```bash
+cp .env.example .env
+```
+
+Open `.env` in your text editor and configure your preferred inference provider. RAGnarok natively supports Groq, OpenAI, Anthropic, and local Ollama:
+
+```ini
+# ==============================================================================
+# RAGnarok Runtime Secrets
+# ==============================================================================
+
+# Primary Cloud Inference Provider (Groq delivers sub-250ms TTFT)
+GROQ_API_KEY="gsk_your_groq_api_key_here"
+
+# Alternative Cloud Provider: OpenAI
+# OPENAI_API_KEY="sk-proj-your_openai_api_key_here"
+
+# Alternative Local Provider: Ollama (fully offline, zero external API keys)
+# OLLAMA_API_BASE="http://localhost:11434"
+
+# Storage & Runtime Environment Overrides
+RAGNAROK_DATA_DIR="./data"
+RAGNAROK_ENV="development"
+```
+
+#### 2. Review Engine Settings in `config.toml`
+Default operational parameters are predefined in `config.toml`:
+
+```toml
+[retrieval]
+strategy = "hybrid"         # "hybrid", "dense", or "bm25"
+candidate_pool_size = 50    # Top-K candidate pool retrieved before RRF fusion
+final_top_k = 10            # Top chunks provided to the generator
+rrf_k = 60                  # Reciprocal Rank Fusion rank dampening constant
+
+[reranker]
+enabled = false             # Cross-Encoder toggle (disabled by default for sub-40ms SLA)
+model_name = "ms-marco-MiniLM-L-12-v2"
+
+[guardrails]
+enabled = true
+token_limit = 1024          # Rejection threshold for context-stuffing DoS
+fast_path_enabled = true    # Sub-millisecond regex & Shannon entropy checks
+speculative_window = 35     # Character sliding buffer for real-time secret masking
+```
+
+---
+
+### Step 5: Run System Diagnostics (`rag doctor`)
+
+Verify that the local Python environment, DuckDB database permissions, FastEmbed ONNX engine, and storage directories are healthy:
 
 ```bash
-uv run --no-sync rag doctor
+uv run rag doctor
 # Shorthand alias:
-uv run --no-sync rag doc
+uv run rag doc
 ```
 
 **Expected Diagnostic Report:**
@@ -196,29 +184,87 @@ uv run --no-sync rag doc
 │ Component              Status      Details                            │
 ├───────────────────────────────────────────────────────────────────────┤
 │ Operating System       [PASS]      Linux 6.6.x (WSL2) / Windows x86_64│
-│ Python Version         [PASS]      Python 3.12.7                      │
-│ Configuration          [PASS]      config.toml loaded                 │
-│ DuckDB Relational      [PASS]      data/db/ragnarok.duckdb connected  │
+│ Python Version         [PASS]      Python 3.12.x                      │
+│ Configuration          [PASS]      config.toml & .env loaded          │
+│ DuckDB Relational      [PASS]      data/ragnarok.duckdb accessible    │
 │ Storage Directories    [PASS]      data/indexes, data/quarantine (RW) │
-│ FastEmbed ONNX Engine  [PASS]      BAAI/bge-small-en-v1.5 ready       │
-│ Cross-Encoder Model    [PASS]      FlashRank initialized              │
-│ Input Guardrails       [PASS]      Tier 1 Fast-Path rules active      │
+│ FastEmbed ONNX Engine  [PASS]      BAAI/bge-small-en-v1.5 initialized │
+│ Input Guardrails       [PASS]      Deterministic Fast-Path active     │
 ╰───────────────────────────────────────────────────────────────────────╯
 [SUCCESS] All systems operational. Ready to ingest documents or query.
 ```
 
 ---
 
+### Step 6: Ingest Sample Documentation & Build Search Indexes
+
+Before querying, seed the DuckDB relational vault and compile the BM25s inverted index and TurboVec dense embeddings:
+
+```bash
+uv run rag ingest ./docs/dataset/
+# Shorthand alias:
+uv run rag in ./docs/dataset/
+```
+
+**Expected Ingestion Output:**
+```text
+RAGnarok Ingestion Pipeline
+Scanning: ./docs/dataset/
+  ├── Clean Documents:       12
+  └── Quarantined Threats:    0
+Ingesting into DuckDB and compiling dual indexes...
+[SUCCESS] Ingested 12 documents into DuckDB, TurboVec, and BM25s in 3.42s.
+```
+
+---
+
+### Step 7: Launch Interfaces & Start Querying
+
+RAGnarok provides multiple execution interfaces tailored for different user workflows:
+
+#### 1. Web Application & Operations Dashboard (Recommended)
+Launch the modern 3-column web interface with real-time SSE streaming, interactive Evidence Drawer, and Architecture Studio (`Arch`):
+```bash
+uv run rag ui
+# Shorthand alias:
+uv run rag serve
+```
+Open **`http://127.0.0.1:8000`** in your browser.
+
+#### 2. Interactive Terminal Chat Shell
+For conversing directly from the command line with multi-turn memory:
+```bash
+uv run rag chat
+```
+
+#### 3. Developer Workspace Deck
+For systems engineering, pipeline latency profiling (`--waterfall`), and component inspection:
+```bash
+uv run rag dev
+```
+
+#### 4. Direct Terminal Query (Non-Interactive Headless Mode)
+For scripting, CI checks, or quick lookups:
+```bash
+uv run rag query "How does parent-child context expansion work?"
+```
+
+---
+
 ## 4. Troubleshooting & Developer FAQ
 
-### Problem 1: `command not found: uv` after installation
-* **Cause:** Shell PATH has not reloaded `$HOME/.local/bin`.
-* **Fix:** In WSL execute `source "$HOME/.local/bin/env"`. In Git Bash execute `export PATH="$HOME/.local/bin:$PATH"` or restart your terminal window.
+### 1. `command not found: uv`
+* **Cause:** The shell has not updated its `PATH` variable to include Astral `uv` binaries.
+* **Fix:** In WSL execute `source "$HOME/.local/bin/env"`. In Git Bash execute `export PATH="$HOME/.local/bin:$PATH"` or restart your terminal.
 
-### Problem 2: `duckdb.IOException: Could not set lock on file`
-* **Cause:** Another terminal session or background process has `ragnarok.duckdb` open with an active exclusive write lock.
-* **Fix:** Close existing `rag dev` sessions or identify the holding process via `fuser data/db/ragnarok.duckdb` (WSL) or Task Manager (Windows).
+### 2. `duckdb.IOException: Could not set lock on file`
+* **Cause:** Another terminal session or background server is currently holding an exclusive write lock on `data/ragnarok.duckdb`.
+* **Fix:** Terminate duplicate running processes (`kill $(pgrep -f "rag")` in WSL or end python processes in Windows Task Manager).
 
-### Problem 3: `ImportError: cannot import name ... from torch`
-* **Cause:** UV attempted to create hardlinks across filesystem boundaries.
-* **Fix:** Run `uv sync --frozen --link-mode=copy` to force full physical byte copies into `.venv`.
+### 3. Slow Ingestion / Slow Vector Retrieval in WSL 2
+* **Cause:** Project files are stored inside a Windows mount directory (`/mnt/c/...`) instead of native ext4 (`~/...`).
+* **Fix:** Move the project directory to your Linux user home directory (`~/Projects/...`).
+
+### 4. FastEmbed ONNX Model Download Hangs
+* **Cause:** First-time initialization downloads the lightweight `bge-small-en-v1.5` ONNX model weights (~130MB) to `~/.cache/fastembed/`.
+* **Fix:** Ensure network connectivity during the initial `rag doctor` or `rag ingest` command. Subsequent runs are 100% offline and load in under 50ms.
