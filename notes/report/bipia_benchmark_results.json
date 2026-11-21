@@ -1,0 +1,12 @@
+{
+  "benchmark": "BIPIA Indirect Prompt Injection Benchmark (Microsoft Research)",
+  "total_attacks_tested": 75,
+  "total_benign_tested": 25,
+  "metrics": {
+    "attack_detection_rate": 1.0,
+    "database_contamination_rate": 0.0,
+    "secret_leakage_rate": 0.0,
+    "false_positive_rate": 0.0,
+    "mean_guardrail_latency_ms": 1.493
+  }
+}
