@@ -9,7 +9,9 @@ Deterministic output protection adhering to dev/arc/guardrails.md:
 
 from __future__ import annotations
 
-from ragnarok.guardrails.output_guard import scan_and_redact_secrets
+from ragnarok.guardrails.output_guard import SpeculativeStreamSanitizer, scan_and_redact_secrets
+
+__all__ = ["sanitize_generated_text", "SpeculativeStreamSanitizer"]
 
 
 def sanitize_generated_text(text: str) -> str:

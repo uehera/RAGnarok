@@ -32,7 +32,9 @@ from ragnarok.generation.fallback import (
 from ragnarok.generation.generator import AnswerGenerator
 from ragnarok.generation.prompts import (
     DEFAULT_GROUNDED_SYSTEM_PROMPT,
+    DIRECT_GENERATE_SYSTEM_PROMPT,
     REFUSAL_MESSAGE,
+    build_direct_generation_messages,
     build_generation_messages,
     format_user_prompt,
 )
@@ -47,7 +49,9 @@ __all__ = [
     "GenerationResponse",
     # Prompts
     "DEFAULT_GROUNDED_SYSTEM_PROMPT",
+    "DIRECT_GENERATE_SYSTEM_PROMPT",
     "REFUSAL_MESSAGE",
+    "build_direct_generation_messages",
     "build_generation_messages",
     "format_user_prompt",
     # Streaming & Fallback

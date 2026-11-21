@@ -41,6 +41,17 @@ _PASSWORD_PATTERN = re.compile(
 _EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 _IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
+# Phone Number Patterns (labeled, international with country code, and delimited national)
+_LABELED_PHONE_PATTERN = re.compile(
+    r"(?i)\b(phone|tel|telephone|mobile|cell|contact)(?:\s*(?:number|no|#))?\s*[:\-]\s*(\+?(?:[0-9][\s\-\.\(\)]*){9,14}[0-9])(?![\w\-\d])"
+)
+_INTL_PHONE_PATTERN = re.compile(
+    r"(?<![\w\+])\+(?:[0-9][\s\-\.\(\)]*){9,14}[0-9](?![\w\-\d])"
+)
+_DELIMITED_PHONE_PATTERN = re.compile(
+    r"(?<![\w\.\-])(?:\([0-9]{3}\)[\s\-\.]*|[0-9]{3}[\-\.])[0-9]{3}[\-\.][0-9]{4}(?![\w\-\d])"
+)
+
 # Common Standardized Refusal Phrases
 _STANDARD_REFUSAL_MARKERS = [
     "i cannot find sufficient information",
@@ -90,6 +101,22 @@ def scan_and_redact_secrets(text: str) -> tuple[str, list[str]]:
     if _EMAIL_PATTERN.search(sanitized):
         detected_types.append("EMAIL")
         sanitized = _EMAIL_PATTERN.sub("[REDACTED EMAIL]", sanitized)
+
+    phone_detected = False
+    if _LABELED_PHONE_PATTERN.search(sanitized):
+        phone_detected = True
+        sanitized = _LABELED_PHONE_PATTERN.sub(r"\1: [REDACTED PHONE_NUMBER]", sanitized)
+
+    if _INTL_PHONE_PATTERN.search(sanitized):
+        phone_detected = True
+        sanitized = _INTL_PHONE_PATTERN.sub("[REDACTED PHONE_NUMBER]", sanitized)
+
+    if _DELIMITED_PHONE_PATTERN.search(sanitized):
+        phone_detected = True
+        sanitized = _DELIMITED_PHONE_PATTERN.sub("[REDACTED PHONE_NUMBER]", sanitized)
+
+    if phone_detected:
+        detected_types.append("PHONE_NUMBER")
 
     if _IPV4_PATTERN.search(sanitized):
         detected_types.append("IP_ADDRESS")

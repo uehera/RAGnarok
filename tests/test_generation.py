@@ -298,7 +298,8 @@ def test_minimal_output_sanitization_redacts_secrets() -> None:
     """
     raw_output = (
         "Here is the database URI: postgresql://admin:secret123@localhost:5432/ragnarok "
-        "and OpenAI key: sk-abcdef1234567890abcdef1234567890 and email: dev@example.com."
+        "and OpenAI key: sk-abcdef1234567890abcdef1234567890 and email: dev@example.com "
+        "and phone: +91 - 8310490313."
     )
 
     clean_output = sanitize_generated_text(raw_output)
@@ -311,6 +312,9 @@ def test_minimal_output_sanitization_redacts_secrets() -> None:
 
     assert "dev@example.com" not in clean_output
     assert "[REDACTED EMAIL]" in clean_output
+
+    assert "+91 - 8310490313" not in clean_output
+    assert "[REDACTED PHONE_NUMBER]" in clean_output
 
 
 def test_generation_service_end_to_end_with_assembled_payload() -> None:

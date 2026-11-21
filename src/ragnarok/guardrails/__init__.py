@@ -10,6 +10,10 @@ Pure Python, framework-free security architecture:
 
 from __future__ import annotations
 
+from ragnarok.guardrails.context_guard import (
+    ContextScreeningResult,
+    ContextSecurityGuard,
+)
 from ragnarok.guardrails.contract import (
     INJECTION_VIOLATION_MESSAGE,
     LENGTH_VIOLATION_MESSAGE,
@@ -19,6 +23,7 @@ from ragnarok.guardrails.contract import (
     DocumentSecurityError,
     InputGuardDecision,
     OutputGuardDecision,
+    format_guardrail_refusal,
 )
 from ragnarok.guardrails.deberta_classifiers import (
     DebertaNLIGroundingClassifier,
@@ -43,6 +48,8 @@ from ragnarok.guardrails.output_guard import (
 from ragnarok.guardrails.service import GuardrailsService
 
 __all__ = [
+    "ContextScreeningResult",
+    "ContextSecurityGuard",
     "GuardrailsService",
     "InputGuard",
     "OutputGuard",
@@ -56,6 +63,7 @@ __all__ = [
     "OutputGuardDecision",
     "DocumentGuardDecision",
     "DocumentSecurityError",
+    "format_guardrail_refusal",
     "check_tier1_fastpath",
     "extract_normalized_variants",
     "scan_and_redact_secrets",

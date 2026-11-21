@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from ragnarok.context.contract import ExpandedParentContext
 from ragnarok.core.config import AppConfig, GuardrailsConfig, load_config
+from ragnarok.guardrails.context_guard import ContextScreeningResult, ContextSecurityGuard
 from ragnarok.guardrails.contract import (
     DocumentGuardDecision,
     InputGuardDecision,
@@ -20,7 +22,7 @@ from ragnarok.guardrails.output_guard import OutputGuard, scan_and_redact_secret
 class GuardrailsService:
     """
     Facade coordinating Tier 1 / Tier 2 input guards, ingestion document guards,
-    and Layer 1 / Layer 2 output guards.
+    in-flight context screening, and Layer 1 / Layer 2 output guards.
     """
 
     def __init__(
@@ -32,6 +34,10 @@ class GuardrailsService:
         self.input_guard = InputGuard(config=self.config, llm_client=llm_client)
         self.output_guard = OutputGuard(config=self.config, llm_client=llm_client)
         self.document_guard = DocumentSecurityGuard(config=self.config)
+        self.context_guard = ContextSecurityGuard(
+            config=self.config,
+            action=self.config.context_screening_action,
+        )
 
     @classmethod
     def from_config(
@@ -72,6 +78,15 @@ class GuardrailsService:
         Validates and defangs document content to prevent indirect prompt injection.
         """
         return self.document_guard.validate(content)
+
+    def screen_context(
+        self,
+        parents: list[ExpandedParentContext],
+    ) -> tuple[list[ExpandedParentContext], ContextScreeningResult]:
+        """
+        Screens retrieved parent context chunks in-flight before prompt assembly.
+        """
+        return self.context_guard.screen_parents(parents)
 
     def redact_secrets(self, text: str) -> str:
         """

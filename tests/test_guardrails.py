@@ -224,6 +224,9 @@ def test_output_secret_redaction() -> None:
         "Password: password='mypassword123'\n"
         "Contact: engineer@ragnarok.ai\n"
         "IP: 192.168.1.50\n"
+        "Phone: +91 - 8310490313\n"
+        "Mobile: 9876543210\n"
+        "Office: (555) 123-4567\n"
     )
 
     redacted, types = scan_and_redact_secrets(sample_output)
@@ -236,18 +239,26 @@ def test_output_secret_redaction() -> None:
     assert "[REDACTED PASSWORD]" in redacted
     assert "[REDACTED EMAIL]" in redacted
     assert "[REDACTED IP_ADDRESS]" in redacted
+    assert "[REDACTED PHONE_NUMBER]" in redacted
+
+    assert "+91 - 8310490313" not in redacted
+    assert "9876543210" not in redacted
+    assert "(555) 123-4567" not in redacted
 
     assert "OPENAI_KEY" in types
     assert "DATABASE_URL" in types
     assert "EMAIL" in types
     assert "IP_ADDRESS" in types
+    assert "PHONE_NUMBER" in types
 
 
 def test_output_clean_text_no_false_positives() -> None:
     """Verifies that clean technical text is not erroneously modified or redacted."""
     clean_text = (
         "RAGnarok combines high-performance dense vector search via FastEmbed ONNX "
-        "with lexical BM25 ranking and strict parent-child chunking [1]."
+        "with lexical BM25 ranking and strict parent-child chunking [1]. "
+        "Tested 4 flap heights (0.5%, 1%, 1.5%, and 2%) across angles of -3°, 0°, 6°, and 12° "
+        "on 2026-11-21 using NACA 23015 and groq/qwen/qwen3.8-27b on port 8080."
     )
     redacted, types = scan_and_redact_secrets(clean_text)
     assert redacted == clean_text
@@ -441,6 +452,24 @@ def test_speculative_stream_sanitizer_masks_secrets_across_tokens() -> None:
     assert "[REDACTED ANTHROPIC_KEY]" in full_output
     assert "sk-ant-abcdef1234567890123456" not in full_output
     assert "ANTHROPIC_KEY" in sanitizer.detected_secrets
+
+
+def test_speculative_stream_sanitizer_masks_phone_across_tokens() -> None:
+    """Verifies that phone numbers split across token boundaries are redacted during live streaming."""
+    sanitizer = SpeculativeStreamSanitizer(window_size=35)
+    tokens = ["- ", "Phone", ":", " +91", " -", " 8310", "490", "313", " [1]", "\n"]
+
+    output_chunks = []
+    for t in tokens:
+        chunk = sanitizer.feed(t)
+        if chunk:
+            output_chunks.append(chunk)
+    output_chunks.append(sanitizer.flush())
+
+    full_output = "".join(output_chunks)
+    assert "[REDACTED PHONE_NUMBER]" in full_output
+    assert "+91 - 8310490313" not in full_output
+    assert "PHONE_NUMBER" in sanitizer.detected_secrets
 
 
 # ==============================================================================

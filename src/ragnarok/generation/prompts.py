@@ -24,6 +24,7 @@ Strict Grounding Guidelines:
 4. Every key factual claim in your answer MUST be followed immediately by its corresponding source citation index, e.g., [1] or [2].
 5. Never invent citation numbers (e.g., do not cite [99] if only [1] and [2] are provided).
 6. Do not combine citations into hyphenated ranges (e.g., avoid [1-3]; cite explicitly as [1], [2], [3]).
+7. Privacy & PII Protection: Do not output direct personal phone numbers or private contact credentials. If contact details are requested, redact them or refer to general communication channels.
 """
 
 
@@ -84,4 +85,31 @@ def build_generation_messages(
                 messages.append({"role": role, "content": content})
 
     messages.append({"role": "user", "content": user_content})
+    return messages
+
+
+DIRECT_GENERATE_SYSTEM_PROMPT = """You are RAGnarok, an authoritative technical assistant.
+This question has been classified as general technical knowledge or conversational by the Self-RAG gate.
+Answer clearly, concisely, and accurately based on standard engineering practices and knowledge.
+Do not fabricate citation references."""
+
+
+def build_direct_generation_messages(
+    query: str,
+    system_prompt: str = DIRECT_GENERATE_SYSTEM_PROMPT,
+    history: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    """
+    Builds conversational message list for direct parametric generation without corpus context.
+    """
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+
+    if history:
+        for turn in history[-6:]:
+            role = turn.get("role", "user")
+            content = turn.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": query.strip()})
     return messages
