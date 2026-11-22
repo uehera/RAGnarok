@@ -732,37 +732,43 @@ def get_benchmarks() -> dict[str, Any]:
         "bm25_precision": [76.50, 72.30, 65.10, 55.90, 49.50, 38.70, 31.50],
     }
 
-    # Latency vs. Quality Pareto Frontier (Scatter points)
+    # Latency vs. Quality Pareto Frontier (Scatter points dynamically bound to empirical results)
+    scifact_strats = scifact_data.get("strategies", {})
+    bm25_perf = scifact_strats.get("bm25_only", {})
+    dense_perf = scifact_strats.get("dense_only", {})
+    hybrid_perf = scifact_strats.get("hybrid_rrf", {})
+    rerank_perf = scifact_strats.get("hybrid_rerank", {})
+
     pareto_frontier = [
         {
             "name": "BM25s Lexical Index",
             "strategy": "bm25_only",
-            "x": 0.45,
-            "y": 0.6889,
+            "x": bm25_perf.get("mean_latency_ms", 0.45),
+            "y": bm25_perf.get("ndcg_at_10", 0.6889),
             "r": 8,
             "category": "Sub-millisecond Lexical",
         },
         {
             "name": "TurboVec Dense Search",
             "strategy": "dense_only",
-            "x": 37.31,
-            "y": 0.7203,
+            "x": dense_perf.get("mean_latency_ms", 37.31),
+            "y": dense_perf.get("ndcg_at_10", 0.7203),
             "r": 10,
             "category": "Dense Semantic Cosine",
         },
         {
             "name": "Hybrid Fusion (RRF k=60)",
             "strategy": "hybrid_rrf",
-            "x": 37.84,
-            "y": 0.7332,
+            "x": hybrid_perf.get("mean_latency_ms", 37.84),
+            "y": hybrid_perf.get("ndcg_at_10", 0.7332),
             "r": 14,
             "category": "Optimal Pareto Frontier (Production)",
         },
         {
             "name": "Hybrid + Cross-Encoder",
             "strategy": "hybrid_rerank",
-            "x": 2486.47,
-            "y": 0.7087,
+            "x": rerank_perf.get("mean_latency_ms", 2486.47),
+            "y": rerank_perf.get("ndcg_at_10", 0.7087),
             "r": 9,
             "category": "Compute Cliff (Diminishing Return)",
         },
