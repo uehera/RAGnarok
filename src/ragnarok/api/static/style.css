@@ -64,12 +64,13 @@
 
 html, body {
   height: 100%;
+  max-height: 100%;
   background-color: var(--bg-page);
   color: var(--text-primary);
   font-family: var(--font-family);
   font-size: 14px;
   line-height: 1.5;
-  overflow: hidden;
+  overflow: hidden !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -79,8 +80,10 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  max-height: 100vh;
   padding: 0.85rem 1.25rem 1.25rem 1.25rem;
   gap: 0.85rem;
+  overflow: hidden;
 }
 
 /* Top Header */
@@ -89,6 +92,7 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 0.25rem 0.5rem;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -212,6 +216,8 @@ html, body {
   gap: 1rem;
   flex: 1;
   min-height: 0;
+  height: calc(100% - 50px);
+  overflow: hidden;
   transition: grid-template-columns 0.2s ease;
 }
 
@@ -259,6 +265,11 @@ html, body {
 .sidebar-nav {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
 }
 
 .nav-menu {
@@ -377,21 +388,26 @@ html, body {
 .center-content {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .view-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .view-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.15rem;
+  margin-bottom: 0.85rem;
+  flex-shrink: 0;
 }
 
 .title-with-desc {
@@ -450,11 +466,13 @@ html, body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -1017,6 +1035,7 @@ html, body {
 .chat-input-wrapper {
   margin-top: 0.75rem;
   padding-top: 0.25rem;
+  flex-shrink: 0;
 }
 
 .chat-upload-status {
@@ -1157,6 +1176,10 @@ html, body {
 .sidebar-evidence {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .evidence-header {
@@ -1166,6 +1189,7 @@ html, body {
   margin-bottom: 1.25rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid #f1f3f6;
+  flex-shrink: 0;
 }
 
 /* Status Badges: Strictly preserve Green for SUCCESS and Red for FAILED */
@@ -2529,18 +2553,23 @@ kbd {
   background: #94a3b8;
 }
 
+/* Compact height adjustments without breaking full-viewport SPA layout */
 @media (max-height: 768px) {
-  html, body {
-    overflow-y: auto !important;
-    height: auto !important;
-    min-height: 100%;
-  }
   .app-container {
-    height: auto !important;
-    min-height: 100vh;
+    padding: 0.5rem 0.85rem 0.85rem 0.85rem;
+    gap: 0.5rem;
   }
-  .main-layout {
-    min-height: 650px;
+  .top-header {
+    padding: 0.15rem 0.35rem;
+  }
+  .card {
+    padding: 0.85rem;
+  }
+  .view-header {
+    margin-bottom: 0.65rem;
+  }
+  .chat-messages {
+    gap: 1rem;
   }
 }
 
