@@ -1,8 +1,8 @@
 # Developer Setup & Complete Environment Initialization
 
 > **Target File:** `notes/developer/setup.md`  
-> **Supported Environments:** Linux / WSL 2 (Ubuntu 22.04 / 24.04 LTS) and Windows 10/11 Native (Git Bash / PowerShell).  
-> **Scope:** Definitive step-by-step guide to installing dependencies, configuring secrets, provisioning DuckDB and search indexes, verifying system diagnostics, and launching both terminal and Web UI interfaces.
+> **Supported Environments:** Linux (Ubuntu 22.04 / 24.04 LTS), WSL 2 (recommended for Windows), and Windows 10/11 Native (Git Bash / PowerShell).  
+> **Scope:** Definitive step-by-step guide to installing dependencies, configuring secrets, provisioning local neural ONNX models, seeding search indexes, running benchmark suites, and launching interfaces.
 
 ---
 
@@ -10,23 +10,26 @@
 
 ```mermaid
 flowchart TD
-    A["System Pre-requisites<br>(Git, Python 3.12, uv)"] --> B["Clone Repository & Disable CRLF<br>(git config core.autocrlf false)"]
-    B --> C["Hydrate Virtualenv via UV<br>(uv sync --link-mode=copy)"]
-    C --> D["Configure Secrets & Engine Parameters<br>(.env & config.toml)"]
-    D --> E["Run System Diagnostics<br>(rag doctor)"]
-    E --> F["Seed Initial Knowledge Corpus<br>(rag ingest ./docs/dataset/)"]
-    F --> G1["Launch Web UI Dashboard<br>(rag ui -> http://127.0.0.1:8000)"]
-    F --> G2["Launch Terminal Chat Shell<br>(rag chat)"]
-    F --> G3["Launch Dev Workspace Deck<br>(rag dev)"]
+    A["1. System Prerequisites<br>(Python 3.12, Astral uv, Git)"] --> B["2. Clone Repository & Disable CRLF<br>(git config core.autocrlf false)"]
+    B --> C["3. Install Virtualenv via UV<br>(uv sync --link-mode=copy)"]
+    C --> D["4. Configure Secrets & Parameters<br>(.env & config.toml)"]
+    D --> E["5. Provision Neural Models<br>(uv run python scripts/download_models.py)"]
+    E --> F["6. Run System Diagnostics<br>(uv run rag doctor)"]
+    F --> G["7. Ingest Knowledge Corpus<br>(uv run rag ingest ./docs/dataset/)"]
+    G --> H["8. (Optional) Run Benchmark Suite<br>(download_benchmarks.py & run_all_benchmarks.py)"]
+    H --> I1["Launch Web UI Dashboard<br>(uv run rag ui -> http://127.0.0.1:8000)"]
+    H --> I2["Launch Terminal Chat Shell<br>(uv run rag chat)"]
+    H --> I3["Launch Developer Workspace<br>(uv run rag dev)"]
 ```
 
 ---
 
 ## 2. Platform Compatibility & Path Matrix
 
-| Platform | Recommended Terminal Shell | Virtualenv Python Path | Storage Directory Style | Recommended Working Directory |
+| Platform | Recommended Shell | Virtualenv Python Path | Storage Directory Style | Recommended Working Directory |
 | :--- | :--- | :--- | :--- | :--- |
-| **WSL 2 (Ubuntu)** | `/bin/bash` or `zsh` | `.venv/bin/python` | Linux ext4 forward slashes (`./data`) | `~/Projects/major_project/RAGnarok` *(inside native Linux ext4)* |
+| **WSL 2 (Ubuntu)** | `/bin/bash` or `zsh` | `.venv/bin/python` | Linux ext4 forward slashes (`./data`) | `~/Projects/major_project/RAGnarok` *(native Linux ext4)* |
+| **Linux Native** | `/bin/bash` or `zsh` | `.venv/bin/python` | Linux ext4 forward slashes (`./data`) | `~/Projects/RAGnarok` |
 | **Windows Native** | Git Bash (`mintty`) or PowerShell | `.venv/Scripts/python.exe` | Standard forward slashes (`./data`) | `C:/Users/<User>/Projects/RAGnarok` |
 
 > [!IMPORTANT]
@@ -36,11 +39,11 @@ flowchart TD
 
 ## 3. Step-by-Step Installation Walkthrough
 
-### Step 1: Install System Pre-requisites & `uv` Package Manager
+### Step 1: Install System Prerequisites & `uv` Package Manager
 
-RAGnarok standardizes on **Astral `uv`**, an ultra-fast Rust-based package resolver that installs all virtual environments and dependencies deterministically in seconds.
+RAGnarok standardizes on **Astral `uv`**, an ultra-fast Rust-based package resolver that installs virtual environments and dependencies deterministically in seconds.
 
-#### Option A: Linux & WSL 2 (Ubuntu)
+#### Option A: Linux & WSL 2 (Ubuntu / Debian)
 ```bash
 # 1. Update system packages and install build tools
 sudo apt update && sudo apt install -y curl git build-essential
@@ -116,7 +119,7 @@ Installed 68 packages in 2.10s
 
 ---
 
-### Step 4: Configure Environment Secrets (`.env`) & Parameters (`config.toml`)
+### Step 4: Configure Environment Secrets (`.env`) & Engine Parameters (`config.toml`)
 
 #### 1. Configure `.env`
 Copy the example environment configuration template:
@@ -168,9 +171,36 @@ speculative_window = 35     # Character sliding buffer for real-time secret mask
 
 ---
 
-### Step 5: Run System Diagnostics (`rag doctor`)
+### Step 5: Provision Local Neural ONNX Models (`scripts/download_models.py`)
 
-Verify that the local Python environment, DuckDB database permissions, FastEmbed ONNX engine, and storage directories are healthy:
+To ensure zero cold-start latency and 100% offline runtime execution, pre-download the quantized ONNX neural weights for dense embeddings and Cross-Encoder reranking:
+
+```bash
+uv run python scripts/download_models.py
+```
+
+**What this downloads (~98 MB total):**
+1. **FastEmbed Dense Embedding Model (`BAAI/bge-small-en-v1.5`, ~67 MB):** Quantized ONNX weights generating 384-dimensional dense vectors cached in `models/fastembed_cache/`.
+2. **FlashRank Cross-Encoder Model (`ms-marco-MiniLM-L-12-v2`, ~31 MB):** ONNX reranker weights cached in `models/ms-marco-MiniLM-L-12-v2/`.
+
+**Expected Output:**
+```text
+============================================================
+🔱 RAGnarok Local Model Provisioning
+============================================================
+[1/2] Pre-warming FastEmbed ONNX model (BAAI/bge-small-en-v1.5)...
+  ✓ FastEmbed initialized and verified.
+[2/2] Downloading FlashRank Cross-Encoder ONNX (ms-marco-MiniLM-L-12-v2)...
+  ✓ FlashRank reranker initialized and verified.
+============================================================
+✨ All ONNX model weights successfully provisioned in models/!
+```
+
+---
+
+### Step 6: Run System Diagnostics (`rag doctor`)
+
+Verify that the local Python environment, DuckDB database permissions, FastEmbed ONNX engine, and storage directories are fully operational:
 
 ```bash
 uv run rag doctor
@@ -196,9 +226,9 @@ uv run rag doc
 
 ---
 
-### Step 6: Ingest Sample Documentation & Build Search Indexes
+### Step 7: Ingest Documentation & Seed Search Indexes
 
-Before querying, seed the DuckDB relational vault and compile the BM25s inverted index and TurboVec dense embeddings:
+Seed the DuckDB relational vault and compile the BM25s inverted index and TurboVec dense embeddings:
 
 ```bash
 uv run rag ingest ./docs/dataset/
@@ -218,12 +248,36 @@ Ingesting into DuckDB and compiling dual indexes...
 
 ---
 
-### Step 7: Launch Interfaces & Start Querying
+### Step 8: (Optional) Provision Benchmark Datasets & Run Evaluations
+
+If you are setting up RAGnarok on a new machine or a higher-performing workstation/server, you can provision the official benchmark corpora and rerun all formal benchmarks:
+
+```bash
+# 1. Download official benchmark datasets (~30 MB total into data/benchmarks/)
+python scripts/download_benchmarks.py
+
+# 2. Execute the master benchmark suite across all 5 evaluation layers
+uv run python scripts/run_all_benchmarks.py
+```
+
+**What this executes:**
+* **BEIR SciFact:** 300 test queries against 5,183 scientific abstracts.
+* **BEIR NFCorpus:** 323 test queries against 3,633 medical abstracts.
+* **ACL 2024 RGB:** 100 test cases for noise robustness and negative refusal.
+* **Microsoft BIPIA:** 100 cases of indirect prompt injection defense.
+* **MultiHop-RAG:** 200 multi-document reasoning cases.
+
+> [!TIP]
+> **Automatic Web UI Metric Updates:** Running `run_all_benchmarks.py` overwrites the JSON scorecards in `notes/report/`. When you open the Web UI at `http://127.0.0.1:8000` and navigate to the **METRICS** tab, the Top KPI cards, Master 5-Layer Table, and Pareto Frontier chart dynamically read these files and update immediately.
+
+---
+
+### Step 9: Launch Application Interfaces
 
 RAGnarok provides multiple execution interfaces tailored for different user workflows:
 
 #### 1. Web Application & Operations Dashboard (Recommended)
-Launch the modern 3-column web interface with real-time SSE streaming, interactive Evidence Drawer, and Architecture Studio (`Arch`):
+Launch the modern 3-column web interface featuring real-time SSE streaming, interactive Evidence Drawer, and Architecture Studio (`Arch`):
 ```bash
 uv run rag ui
 # Shorthand alias:
@@ -251,20 +305,58 @@ uv run rag query "How does parent-child context expansion work?"
 
 ---
 
-## 4. Troubleshooting & Developer FAQ
+## 4. Complete Project Directory Layout
+
+```text
+RAGnarok/
+├── config.toml                 # Global retrieval, reranker, and guardrail settings
+├── .env.example                # Template for LLM API keys and runtime paths
+├── pyproject.toml              # Dependencies, build scripts, and CLI entry points
+├── uv.lock                     # Deterministic dependency lockfile
+├── scripts/
+│   ├── download_models.py      # Automated ONNX neural weights pre-warmer (~98 MB)
+│   ├── download_benchmarks.py  # Benchmark dataset downloader (~30 MB)
+│   └── run_all_benchmarks.py   # Master 5-layer benchmark runner
+├── models/                     # Local ONNX weights (gitignored)
+│   ├── fastembed_cache/        # BAAI/bge-small-en-v1.5 embeddings (~67 MB)
+│   └── ms-marco-MiniLM-L-12-v2/ # FlashRank Cross-Encoder reranker (~31 MB)
+├── data/                       # Local runtime storage (gitignored)
+│   ├── ragnarok.duckdb         # Relational database for parent chunks & documents
+│   ├── indexes/                # TurboVec binary embeddings & BM25s vocabulary
+│   ├── quarantine/             # Isolated Trojan documents & forensic audit sidecars
+│   └── benchmarks/             # Downloaded SciFact, NFCorpus, RGB, BIPIA, MultiHop
+├── docs/dataset/               # Clean sample knowledge documentation
+├── src/ragnarok/
+│   ├── api/                    # FastAPI backend & static SPA Web UI (index.html, app.js, style.css)
+│   ├── cli/                    # Typer subcommands, REPL shells, and component probes
+│   ├── core/                   # Pydantic settings and data contracts
+│   ├── evals/                  # Benchmark execution engines (SciFact, NFCorpus, RGB, etc.)
+│   ├── guardrails/             # Input Gateway, Staging Quarantine, Stream Sanitizer
+│   ├── indexing/               # BM25s sparse index & TurboVec dense vector store
+│   ├── retrieval/              # Hybrid RRF fusion pipeline & Cross-Encoder reranker
+│   └── storage/                # DuckDB relational schema & CRUD operations
+└── notes/
+    ├── arc/                    # Architectural decision blueprints (00-08)
+    ├── developer/              # Operational, testing, and interface handbooks
+    └── report/                 # Empirical evaluation scorecards, papers, and algorithms
+```
+
+---
+
+## 5. Troubleshooting & FAQ
 
 ### 1. `command not found: uv`
 * **Cause:** The shell has not updated its `PATH` variable to include Astral `uv` binaries.
-* **Fix:** In WSL execute `source "$HOME/.local/bin/env"`. In Git Bash execute `export PATH="$HOME/.local/bin:$PATH"` or restart your terminal.
+* **Fix:** In WSL/Linux execute `source "$HOME/.local/bin/env"`. In Git Bash execute `export PATH="$HOME/.local/bin:$PATH"` or restart your terminal.
 
 ### 2. `duckdb.IOException: Could not set lock on file`
 * **Cause:** Another terminal session or background server is currently holding an exclusive write lock on `data/ragnarok.duckdb`.
-* **Fix:** Terminate duplicate running processes (`kill $(pgrep -f "rag")` in WSL or end python processes in Windows Task Manager).
+* **Fix:** Terminate duplicate running processes (`kill $(pgrep -f "rag")` in WSL/Linux or end Python processes in Windows Task Manager).
 
-### 3. Slow Ingestion / Slow Vector Retrieval in WSL 2
-* **Cause:** Project files are stored inside a Windows mount directory (`/mnt/c/...`) instead of native ext4 (`~/...`).
-* **Fix:** Move the project directory to your Linux user home directory (`~/Projects/...`).
+### 3. FastEmbed ONNX Model Download Hangs or Fails
+* **Cause:** Network interruption or blocked access to HuggingFace during initial download.
+* **Fix:** Run `uv run python scripts/download_models.py`. It performs robust streaming downloads directly into the local `models/` directory with automatic retries.
 
-### 4. FastEmbed ONNX Model Download Hangs
-* **Cause:** First-time initialization downloads the lightweight `bge-small-en-v1.5` ONNX model weights (~130MB) to `~/.cache/fastembed/`.
-* **Fix:** Ensure network connectivity during the initial `rag doctor` or `rag ingest` command. Subsequent runs are 100% offline and load in under 50ms.
+### 4. Running Benchmarks on Another Machine
+* **Question:** How do I run the full benchmark suite on a more powerful machine?
+* **Answer:** Follow Steps 1–5 on the target machine, run `python scripts/download_benchmarks.py`, and then run `uv run python scripts/run_all_benchmarks.py`. The resulting JSON scorecards are written to `notes/report/` and immediately reflected in the Web UI dashboard under **METRICS**.

@@ -1,22 +1,22 @@
-# Standalone Terminal & Headless Verification Commands
+# Standalone Terminal & Headless Operational Commands
 
 > **Target File:** `notes/developer/terminal_commands.md`  
-> **Scope:** Practical operational reference for standalone, non-interactive CLI commands, administrative operations, diagnostics, and test harnesses outside of interactive shells.
+> **Scope:** Practical operational reference for standalone, non-interactive CLI commands, administrative operations, diagnostics, benchmark scripts, and component probes outside of interactive shells.
 
 ---
 
 ## 1. Operational Overview
 
-All core operations in RAGnarok can be executed directly as single-shot terminal commands without launching interactive shells. Commands are prefixed with `uv run rag <command>` (or `ragnarok <command>`).
+All core operations in RAGnarok can be executed directly as single-shot terminal commands without launching interactive shells. Commands are prefixed with `uv run rag <command>` (or `uv run python <script>`).
 
 ```mermaid
 flowchart TD
-    CMD["Standalone CLI Command"] --> ING["1. Ingestion & Index Maintenance<br>• rag ingest &lt;path&gt;<br>• rag reindex"]
+    CMD["Standalone CLI Execution"] --> ING["1. Ingestion & Index Maintenance<br>• rag ingest &lt;path&gt;<br>• rag reindex"]
     CMD --> QRY["2. Headless Query Execution<br>• rag query &lt;text&gt; [--strategy, --rerank, --waterfall]"]
     CMD --> DIAG["3. Diagnostics & Health Metrics<br>• rag stats<br>• rag doctor"]
-    CMD --> PROBE["4. Isolated Component Probes<br>• rag test guard, parse, chunk, pii..."]
+    CMD --> PROBE["4. Isolated Component Probes<br>• rag test guard, parse, chunk, pii, embed..."]
     CMD --> SRV["5. Web UI & API Server<br>• rag ui / rag serve [--host, --port]"]
-    CMD --> TEST["6. Automated Pytest Suites<br>• uv run pytest tests/..."]
+    CMD --> BENCH["6. Automated Benchmark Suite<br>• download_models.py<br>• download_benchmarks.py<br>• run_all_benchmarks.py"]
 ```
 
 ---
@@ -24,7 +24,7 @@ flowchart TD
 ## 2. Ingestion & Index Administration
 
 ### 2.1 Ingesting Documents (`rag ingest` / `rag in`)
-Scans inbound files, verifies them against `DocumentSecurityGuard`, segments them into 512-token chunks, and commits them to DuckDB and dual indexes:
+Scans inbound files, verifies them against `DocumentSecurityGuard` for Indirect Prompt Injections (IPI), segments clean documents into hierarchical chunks, and commits them to DuckDB and dual search indexes:
 
 ```bash
 # Ingest an entire directory of documents
@@ -41,13 +41,13 @@ Scanning: ./docs/dataset/ [12 files discovered]
   ├── Clean Documents:       12
   └── Quarantined Threats:    0
 [DuckDB] Committed 12 documents and 48 parent chunks
-[TurboVec] Indexed 192 dense vectors (384-d Cosine)
+[TurboVec] Indexed 192 dense vectors (384-d Cosine via FastEmbed ONNX)
 [BM25s] Built sparse inverted vocabulary
 [SUCCESS] Ingested 12 documents in 3.42s.
 ```
 
 ### 2.2 Rebuilding Search Indexes (`rag reindex` / `rag rx`)
-Rebuilds lexical and vector search indexes from existing DuckDB records without re-parsing files:
+Rebuilds lexical and vector search indexes from existing DuckDB records without re-parsing source files:
 
 ```bash
 uv run rag reindex
@@ -67,7 +67,7 @@ uv run rag rx
 
 ## 3. Direct Headless Queries (`rag query` / `rag q`)
 
-Executes single-shot retrieval, guardrail inspection, and streaming generation directly to the terminal output.
+Executes single-shot retrieval, guardrail inspection, and streaming generation directly to terminal output.
 
 ### 3.1 Standard Query Execution
 ```bash
@@ -98,14 +98,14 @@ uv run rag q "How does context expansion work?" --waterfall
 ╭──────────────────────── Pipeline Latency Waterfall ────────────────────────╮
 │ Component Stage                 Latency    Percentage                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Surface 1: Input Threat Guard    0.42 ms    ■ (1.1%)                        │
+│ Surface 1: Input Threat Guard    0.38 ms    ■ (1.0%)                        │
 │ Self-RAG Classification          1.15 ms    ■ (3.0%)                        │
-│ BM25s Lexical Search             0.45 ms    ■ (1.2%)                        │
-│ TurboVec Dense Search           37.31 ms    ■■■■■■■■■■■■■■■■■■■■■ (93.5%)   │
+│ BM25s Lexical Search             0.44 ms    ■ (1.2%)                        │
+│ TurboVec Dense Search           18.25 ms    ■■■■■■■■■■■■■■■■■■■■■ (47.5%)   │
 │ Reciprocal Rank Fusion (k=60)    0.32 ms    ■ (0.8%)                        │
 │ DuckDB Parent Window Expansion   0.24 ms    ■ (0.6%)                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Total Retrieval Latency         39.89 ms    [SLA: PASS (< 45.0 ms)]         │
+│ Total Retrieval Latency         20.78 ms    [SLA: PASS (< 45.0 ms)]         │
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -113,7 +113,7 @@ uv run rag q "How does context expansion work?" --waterfall
 
 ## 4. System Diagnostics & Telemetry
 
-### 4.1 System Health & Runtime Diagnostics (`rag doctor` / `rag doc`)
+### 4.1 System Health & Diagnostics (`rag doctor` / `rag doc`)
 Inspects hardware, Python version, DuckDB connectivity, FastEmbed ONNX engine, and storage directory permissions:
 
 ```bash
@@ -163,9 +163,49 @@ uv run rag ui --reload
 
 ---
 
-## 6. Isolated Component Probes (`rag test <component>`)
+## 6. Local Model Provisioning & Benchmark Suites
 
-Test individual system components in isolation without executing the complete retrieval-generation pipeline:
+### 6.1 Provision Local Neural ONNX Models
+Downloads and caches local ONNX model weights into `models/` for 100% offline runtime execution:
+```bash
+uv run python scripts/download_models.py
+```
+
+### 6.2 Provision Benchmark Datasets
+Downloads official benchmark corpora into `data/benchmarks/`:
+```bash
+python scripts/download_benchmarks.py
+```
+
+### 6.3 Execute Master Benchmark Suite
+Runs all 5 evaluation layers sequentially, writes JSON scorecards to `notes/report/`, and refreshes metrics for the Web UI:
+```bash
+uv run python scripts/run_all_benchmarks.py
+```
+
+### 6.4 Execute Individual Benchmark Layers
+```bash
+# 1. BEIR SciFact (Information Retrieval Ablations)
+uv run python src/ragnarok/evals/scifact_bench.py
+
+# 2. BEIR NFCorpus (Biomedical Domain Generalization)
+uv run python src/ragnarok/evals/nfcorpus_bench.py
+
+# 3. ACL 2024 RGB (Noise Robustness & Negative Rejection)
+uv run python src/ragnarok/evals/rgb_bench.py
+
+# 4. Microsoft BIPIA (Indirect Prompt Injection Defense)
+uv run python src/ragnarok/evals/bipia_bench.py
+
+# 5. MultiHop-RAG (Multi-Document Evidence Synthesis)
+uv run python src/ragnarok/evals/multihop_bench.py
+```
+
+---
+
+## 7. Isolated Component Probes (`rag test <component>`)
+
+Test individual system components in isolation without executing the complete end-to-end pipeline:
 
 ```bash
 # 1. Test Input Guardrail against adversarial prompt injections
@@ -182,24 +222,30 @@ uv run rag test chunk ./docs/dataset/sample.md
 
 # 5. Test FastEmbed dense embedding generation
 uv run rag test embed "Sample query text for embedding check"
+
+# 6. Test in-flight context screening
+uv run rag test screening
+
+# 7. Test RAGAS evaluation golden dataset
+uv run rag test ragas
 ```
 
 ---
 
-## 7. Automated Test Suite Execution
+## 8. Automated Pytest Test Suite
 
-Run unit, integration, and security verification suites using `pytest`:
+Execute unit, integration, and security verification suites using `pytest`:
 
 ```bash
 # Run complete test suite (unit, integration, and security gates)
 uv run pytest
 
 # Run API and Web UI integration tests only
-uv run pytest tests/test_api.py
+uv run pytest tests/test_api.py -v
 
 # Run adversarial security and injection battle tests
-uv run pytest tests/battle/test_adversarial.py
+uv run pytest tests/battle/test_adversarial.py -v
 
 # Run golden dataset formal evaluation benchmarks
-uv run pytest tests/evals/test_ragas.py
+uv run pytest tests/evals/test_ragas.py -v
 ```

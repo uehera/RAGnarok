@@ -1318,7 +1318,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  let uploadDismissTimer = null;
+
+  function scheduleUploadStatusDismissal(delayMs = 7000) {
+    if (uploadDismissTimer) {
+      clearTimeout(uploadDismissTimer);
+    }
+    uploadDismissTimer = setTimeout(() => {
+      if (chatUploadStatus) {
+        chatUploadStatus.style.display = "none";
+      }
+      if (uploadStatusMessage) {
+        uploadStatusMessage.style.display = "none";
+      }
+      uploadDismissTimer = null;
+    }, delayMs);
+  }
+
   async function handleFileUpload(file) {
+    if (uploadDismissTimer) {
+      clearTimeout(uploadDismissTimer);
+      uploadDismissTimer = null;
+    }
+
     if (chatUploadStatus) {
       chatUploadStatus.style.display = "flex";
       chatUploadStatus.className = "chat-upload-status uploading";
@@ -1353,43 +1375,40 @@ document.addEventListener("DOMContentLoaded", () => {
         if (chatUploadStatus) {
           chatUploadStatus.className = "chat-upload-status quarantine";
           chatUploadStatus.innerHTML = threatHtml;
+          chatUploadStatus.style.display = "flex";
         }
         if (uploadStatusMessage) {
           uploadStatusMessage.className = "status-box quarantine";
           uploadStatusMessage.innerHTML = threatHtml;
+          uploadStatusMessage.style.display = "block";
         }
+        scheduleUploadStatusDismissal(7000);
       } else if (data.status === "duplicate") {
         const dupHtml = `<span class="badge badge-gray" style="margin-right: 6px;">SKIPPED</span> <span><strong>Notice:</strong> ${escapeHtml(data.message)}</span>`;
         if (chatUploadStatus) {
           chatUploadStatus.className = "chat-upload-status";
           chatUploadStatus.innerHTML = dupHtml;
+          chatUploadStatus.style.display = "flex";
         }
         if (uploadStatusMessage) {
           uploadStatusMessage.className = "status-box duplicate";
           uploadStatusMessage.innerHTML = dupHtml;
+          uploadStatusMessage.style.display = "block";
         }
+        scheduleUploadStatusDismissal(7000);
       } else {
         const successHtml = `<span class="badge badge-green" style="margin-right: 6px;">SUCCESS</span> <span><strong>Ready to Use:</strong> ${escapeHtml(data.message)}</span>`;
         if (chatUploadStatus) {
           chatUploadStatus.className = "chat-upload-status success";
           chatUploadStatus.innerHTML = successHtml;
           chatUploadStatus.style.display = "flex";
-          setTimeout(() => {
-            if (chatUploadStatus && chatUploadStatus.classList.contains("success")) {
-              chatUploadStatus.style.display = "none";
-            }
-          }, 4500);
         }
         if (uploadStatusMessage) {
           uploadStatusMessage.className = "status-box success";
           uploadStatusMessage.innerHTML = successHtml;
           uploadStatusMessage.style.display = "block";
-          setTimeout(() => {
-            if (uploadStatusMessage && uploadStatusMessage.classList.contains("success")) {
-              uploadStatusMessage.style.display = "none";
-            }
-          }, 4500);
         }
+        scheduleUploadStatusDismissal(7000);
       }
 
       loadVaultDocuments();
@@ -1399,11 +1418,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (chatUploadStatus) {
         chatUploadStatus.className = "chat-upload-status quarantine";
         chatUploadStatus.innerHTML = errHtml;
+        chatUploadStatus.style.display = "flex";
       }
       if (uploadStatusMessage) {
         uploadStatusMessage.className = "status-box quarantine";
         uploadStatusMessage.innerHTML = errHtml;
+        uploadStatusMessage.style.display = "block";
       }
+      scheduleUploadStatusDismissal(7000);
     } finally {
       if (chatFileInput) chatFileInput.value = "";
       if (fileUploadInput) fileUploadInput.value = "";

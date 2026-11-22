@@ -313,3 +313,133 @@ Output: Verified response tuple (Y_verified, F_verified) or Refusal directive
 19: deduplicated_sources ← DeduplicateByDocID(verified_sources)
 20: return (Y_clean, deduplicated_sources)
 ```
+
+
+---
+
+## 5. Dual-Engine Hybrid Retrieval & Reciprocal Rank Fusion (RRF)
+
+### Explanation
+Dual-Engine Hybrid Retrieval combines the exact keyword precision of sparse BM25s lexical search with the conceptual semantic capture of TurboVec dense vector search (FastEmbed ONNX 384-d). The two engines execute concurrently in a parallel thread pool. 
+
+Rather than relying on uncalibrated score normalization (e.g., MinMax or z-score), which is susceptible to outlier distortion across heterogeneous score spaces, RAGnarok merges ranked candidate pools using **Reciprocal Rank Fusion (RRF)** with smoothing constant $k = 60$. RRF ranks items based on position invariance, guaranteeing that an item appearing near the top of either list receives a boosted rank without allowing extreme raw cosine or BM25 scores to monopolize candidates.
+
+### Flowchart
+
+```mermaid
+flowchart TD
+    A["Canonical Query (q_canon)"] --> B["ThreadPoolExecutor: Parallel Fanout"]
+    B --> C1["BM25s Lexical Search<br>(Candidate Pool K=50, 0.44 ms)"]
+    B --> C2["TurboVec Dense Search<br>(Candidate Pool K=50, 18.25 ms)"]
+    C1 --> D["Lexical Ranked List: R_lex"]
+    C2 --> D2["Dense Ranked List: R_dense"]
+    D & D2 --> E["Reciprocal Rank Fusion (k = 60)"]
+    E --> F["Compute RRF Scores for All Candidates: c in R_lex union R_dense"]
+    F --> G["Sort Candidates Descending by RRF Score"]
+    G --> H["Select Top N Candidates (Default: N=10)"]
+    H --> I["Pass Top Candidates to DuckDB Context Expansion"]
+```
+
+### Mathematical Formulation
+Given lexical rank position $r_{\text{lex}}(c)$ and dense rank position $r_{\text{dense}}(c)$ for candidate chunk $c$:
+
+$$\text{Score}_{\text{RRF}}(c) = \sum_{m \in \{\text{lex}, \text{dense}\}} \frac{1}{k + r_m(c)}$$
+
+*(where $k = 60$ dampens the impact of high-ranking outliers)*
+
+### Algorithm
+
+```text
+Algorithm 5: Dual-Engine Hybrid Retrieval & Reciprocal Rank Fusion
+────────────────────────────────────────────────────────────────────────────────
+Input:  Canonical query q_canon, lexical index I_lex, dense index I_dense,
+        pool size K = 50, final top-N = 10, dampening constant k = 60
+Output: Unified ranked candidate chunks C_top
+────────────────────────────────────────────────────────────────────────────────
+ 1: Parallel Execute:
+ 2:     R_lex   ← I_lex.Search(q_canon, top_k = K)
+ 3:     R_dense ← I_dense.Search(q_canon, top_k = K)
+ 4:
+ 5: rrf_scores ← Dictionary()
+ 6:
+ 7: for rank, chunk in Enumerate(R_lex, start = 1) do
+ 8:     rrf_scores[chunk.id] ← rrf_scores.Get(chunk.id, 0.0) + (1.0 / (k + rank))
+ 9: end for
+10:
+11: for rank, chunk in Enumerate(R_dense, start = 1) do
+12:     rrf_scores[chunk.id] ← rrf_scores.Get(chunk.id, 0.0) + (1.0 / (k + rank))
+13: end for
+14:
+15: sorted_candidates ← SortKeysByValueDescending(rrf_scores)
+16: C_top ← TakeFirst(sorted_candidates, N)
+17: return C_top
+```
+
+---
+
+## 6. Hierarchical Parent-Child Context Expansion
+
+### Explanation
+Small child chunks (256-512 tokens) are necessary for precise dense embeddings and specific lexical matching, but isolated small chunks lack the surrounding narrative context required by generative models, leading to clipped sentences and reasoning failures.
+
+RAGnarok decouples the search index from the generation context through **Hierarchical Parent-Child Context Expansion**:
+1. Only child chunks are vectorized and indexed in BM25s and TurboVec.
+2. Each child chunk maintains a foreign key pointer (`parent_id`) to its full enclosing section stored in DuckDB (~1,024-2,048 tokens).
+3. Upon retrieval of child candidates, DuckDB executes a batch SQL lookup (`SELECT * FROM parent_chunks WHERE parent_id IN (...)`).
+4. Duplicate parent IDs from sibling child chunks are collapsed into unique parent sections.
+5. Sibling windows are dynamically concatenated, yielding contiguous context with full paragraph boundaries and $+4.42\%$ higher recall on multi-hop reasoning benchmarks.
+
+### Flowchart
+
+```mermaid
+flowchart TD
+    A["Top Ranked Child Chunks (c_1 ... c_k)"] --> B["Extract Foreign Keys: {c.parent_id}"]
+    B --> C["Deduplicate Unique Parent IDs"]
+    C --> D["Batch DuckDB Relational Lookup:<br>SELECT * FROM parent_chunks WHERE parent_id IN (...)"]
+    D --> E["Order Parent Sections by Highest Child Rank"]
+    E --> F{"Total Tokens > Max Context Budget (3000 tok)?"}
+    F -- "Yes" --> G["Truncate Lower-Ranked Parents to Satisfy Budget"]
+    F -- "No" --> H["Perimeter Formatting: Rank 1 at Top, Rank 2 at Bottom"]
+    G --> H
+    H --> I["Emit Assembled Context Payload to Generator"]
+```
+
+### Mathematical Formulation
+Let retrieved child chunk set be $\mathcal{C}_{\text{ret}} = \{c_1, \dots, c_k\}$ where each child maps to a parent section $\pi(c) \in \mathcal{P}_{\text{vault}}$. The unique parent expansion set $\mathcal{P}_{\text{exp}}$ is defined as:
+
+$$\mathcal{P}_{\text{exp}} = \{\pi(c) \mid c \in \mathcal{C}_{\text{ret}}\}$$
+
+Token budgeting enforces an upper bound $B_{\max}$ on the assembled context:
+
+$$\sum_{p \in \mathcal{P}_{\text{budget}}} |p|_{\text{tokens}} \le B_{\max}, \quad \text{where } \mathcal{P}_{\text{budget}} \subseteq \mathcal{P}_{\text{exp}}$$
+
+### Algorithm
+
+```text
+Algorithm 6: Hierarchical Parent-Child Context Expansion & Perimeter Formatting
+────────────────────────────────────────────────────────────────────────────────
+Input:  Ranked child chunk list C_ret, relational vault V (DuckDB),
+        maximum token budget B_max = 3000
+Output: Formatted context payload X_context with provenance mapping
+────────────────────────────────────────────────────────────────────────────────
+ 1: parent_ids ← OrderedUnique([c.parent_id for c in C_ret])
+ 2: raw_parents ← V.BatchFetchParents(parent_ids)
+ 3:
+ 4: selected_parents ← []
+ 5: current_tokens ← 0
+ 6:
+ 7: for p in raw_parents do
+ 8:     if current_tokens + p.token_count <= B_max then
+ 9:         selected_parents.Append(p)
+10:         current_tokens ← current_tokens + p.token_count
+11:     else
+12:         break
+13:     end if
+14: end for
+15:
+16: // Perimeter assembly: mitigate Lost-in-the-Middle effect
+17: formatted_blocks ← PerimeterArrange(selected_parents)
+18: prov_map ← BuildProvenanceMap(selected_parents)
+19:
+20: return ContextPayload(blocks = formatted_blocks, provenance = prov_map)
+```

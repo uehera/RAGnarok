@@ -30,6 +30,7 @@ flowchart TD
             S03 --> DDB[("DuckDB Relational Vault<br>• documents table<br>• parent_chunks table")]
             S03 --> BM25[("BM25s Lexical Index<br>• Sparse Inverted Vocabulary<br>• 0.45 ms Exact Term Search")]
             S03 --> TVEC[("TurboVec Dense Index<br>• 384-d FastEmbed ONNX<br>• 259 ms Incremental Sync")]
+            S03 --> MDL[("Local ONNX Models (models/)<br>• FastEmbed cache (~67 MB)<br>• FlashRank MiniLM (~31 MB)")]
         end
     end
 

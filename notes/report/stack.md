@@ -116,3 +116,15 @@ flowchart TD
 * **Typer & Rich:** In `cli/main.py`, `cli/probes.py`, and `cli/visuals.py`, provides the operational command suite with interactive progress bars, tables, and per-stage latency waterfalls (`--waterfall`).
 * **Prompt-Toolkit:** In `cli/repl.py` and `cli/dev_shell.py`, manages interactive session turn history, slash commands (`/sources`, `/strategy`, `/rerank`), and in-shell diagnostics.
 * **DeepEval & Pytest:** In `tests/evals/test_golden_dataset.py`, automatically scores offline runs against the Evaluation Triad (Context Precision $\ge 0.86$, Context Recall $\ge 0.85$, Faithfulness $\ge 0.90$, Answer Relevancy $\ge 0.85$).
+
+
+---
+
+### 3.6 Automated Model Provisioning & Suite Automation
+* **`scripts/download_models.py`:** Standalone Python script utilizing `urllib` and `tqdm` to pre-download quantized ONNX neural weights (~98 MB) directly into `models/fastembed_cache/` and `models/ms-marco-MiniLM-L-12-v2/` for zero cold-start offline initialization.
+* **`scripts/download_benchmarks.py`:** Downloads official benchmark corpora (BEIR SciFact, BEIR NFCorpus, ACL RGB, Microsoft BIPIA, MultiHop-RAG) into `data/benchmarks/`.
+* **`scripts/run_all_benchmarks.py`:** Master automated evaluation orchestrator that executes all 5 benchmark suites sequentially, produces JSON scorecards in `notes/report/`, and triggers dynamic telemetry updates on the Web UI.
+
+### 3.7 Viewport-Locked SPA Frontend Architecture
+* **CSS Viewport Isolation:** Strict `height: 100vh; overflow: hidden;` applied to root `html, body, .app-container`, pinning `.top-header`, `.sidebar-nav`, and `.sidebar-evidence` (`flex-shrink: 0;`).
+* **Isolated Scroll Container:** `.chat-messages` container with `overflow-y: auto; overscroll-behavior: contain;`, ensuring internal message list scrolling without displacing header, navigation, or evidence panels.

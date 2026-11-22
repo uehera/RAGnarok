@@ -2,7 +2,7 @@
 
 > **Target File:** `notes/developer/rag_dev.md`  
 > **Invocation:** `rag dev`, `rag d`, `rag -dev`  
-> **Scope:** Practical engineering reference for pipeline debugging, component probing, storage maintenance, and latency profiling using the interactive developer workspace.
+> **Scope:** Practical engineering reference for pipeline debugging, component probing, storage maintenance, raw provenance inspection, and latency profiling using the interactive developer workspace shell.
 
 ---
 
@@ -18,7 +18,7 @@ flowchart TD
     PARSER -- "doctor / stats" --> DIAG["2. System Health & Storage Metrics"]
     PARSER -- "query &lt;text&gt; [--waterfall]" --> RET["3. Instrumented Query Profiling"]
     PARSER -- "/source &lt;N&gt;" --> INSP["4. Raw Provenance Deep-Inspector"]
-    PARSER -- "parse, chunk, guard, pii..." --> PROBE["5. Live In-Memory Component Probes"]
+    PARSER -- "parse, chunk, guard, pii, embed, screening, ragas" --> PROBE["5. Live Component Probes"]
 ```
 
 ---
@@ -39,7 +39,7 @@ uv run rag -dev
 │ Core Operations: ingest <path> (in) | reindex (rx)                       │
 │ Diagnostics: doctor (doc) | stats (st)                                   │
 │ Inspection: /source <N> (inspect raw source text)                        │
-│ Retrieval Query: query "<text>" (q) [--waterfall, --strategy, --budget]  │
+│ Retrieval Query: query "<text>" (q) [--waterfall, --strategy, --rerank]  │
 │ Component Probes: parse, chunk, embed, bm25, rerank, guard, pii, eval   │
 │ Controls: help (/help) | clear (/clear) | exit (quit)                    │
 ╰──────────────────────────────────────────────────────────────────────────╯
@@ -60,9 +60,11 @@ rag-dev>
 | **Deep Inspector** | `/source <N>` | Displays raw parent text and metadata for citation `[N]`. | `/source 1` |
 | **Parser Probe** | `parse <file>` | Runs `PyMuPDF` on file and displays markdown hierarchy. | `parse docs/spec.pdf` |
 | **Chunking Probe** | `chunk <file>` | Displays parent/child token window boundaries. | `chunk docs/spec.md` |
+| **Embedding Probe** | `embed "<text>"` | Generates and checks FastEmbed ONNX 384-d vector embeddings. | `embed "test query"` |
 | **Guardrail Probe** | `guard "<query>"` | Evaluates query against regex rules and Shannon entropy. | `guard "1gn0r3 pr0mp7"` |
 | **Sanitizer Probe** | `pii "<text>"` | Tests token-boundary secret masking and redaction. | `pii "key is sk-123..."` |
-| **Benchmark Probe** | `eval` | Runs golden dataset evaluation triad in background. | `eval` |
+| **Screening Probe** | `screening` | Tests in-flight context screening against malicious chunks. | `screening` |
+| **Benchmark Probe** | `eval`, `ragas` | Runs golden dataset evaluation triad in background. | `eval` |
 | **Session Controls** | `clear`, `exit`, `quit` | Clears terminal screen or exits the dev workspace. | `exit` |
 
 ---
@@ -108,14 +110,14 @@ on technical identifiers while preserving semantic generalization [1].
 ╭──────────────────────── Pipeline Latency Waterfall ────────────────────────╮
 │ Stage                           Duration   Percentage                      │
 ├────────────────────────────────────────────────────────────────────────────┤
-│ Input Gateway (Surface 1)        0.41 ms   ■ (1.0%)                        │
-│ Self-RAG Classification         1.12 ms   ■ (2.8%)                        │
-│ BM25s Lexical Search            0.45 ms   ■ (1.1%)                        │
-│ TurboVec Vector Search         37.31 ms   ■■■■■■■■■■■■■■■■■■■■■ (93.3%)   │
-│ Reciprocal Rank Fusion          0.33 ms   ■ (0.8%)                        │
-│ DuckDB Parent Window Expansion  0.38 ms   ■ (1.0%)                        │
+│ Input Gateway (Surface 1)        0.38 ms   ■ (1.8%)                        │
+│ Self-RAG Classification         1.12 ms   ■ (5.4%)                        │
+│ BM25s Lexical Search            0.44 ms   ■ (2.1%)                        │
+│ TurboVec Vector Search         18.25 ms   ■■■■■■■■■■■■■■■■■■■■■ (87.8%)   │
+│ Reciprocal Rank Fusion          0.33 ms   ■ (1.6%)                        │
+│ DuckDB Parent Window Expansion  0.26 ms   ■ (1.3%)                        │
 ├────────────────────────────────────────────────────────────────────────────┤
-│ Total Retrieval Latency        40.00 ms   [SLA Target: < 45.0 ms - PASS]  │
+│ Total Retrieval Latency        20.78 ms   [SLA Target: < 45.0 ms - PASS]  │
 ╰────────────────────────────────────────────────────────────────────────────╯
 ```
 

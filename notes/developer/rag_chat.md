@@ -2,7 +2,7 @@
 
 > **Target File:** `notes/developer/rag_chat.md`  
 > **Invocation:** `rag chat`, `rag c` or Web UI at `http://127.0.0.1:8000/`  
-> **Scope:** Comprehensive guide on interacting with RAGnarok through both the terminal chat shell and the modern browser-based Web UI, including multi-turn conversational memory, runtime retrieval controls, citation verification, and evidence inspection.
+> **Scope:** Practical guide on interacting with RAGnarok through both the terminal chat shell and the modern browser-based Web UI, including multi-turn conversational memory, viewport-locked layout mechanics, runtime retrieval controls, citation verification, and evidence inspection.
 
 ---
 
@@ -10,7 +10,7 @@
 
 RAGnarok provides two complementary conversational interfaces:
 1. **Interactive Terminal Chat Shell (`rag chat`)**: A lightweight, keyboard-driven CLI environment with slash commands and multi-turn conversational context.
-2. **Modern Web Chat Interface (`rag ui`)**: A 3-column web interface featuring real-time Server-Sent Events (SSE) token streaming, clickable citation badges, and an interactive slide-out Evidence Drawer.
+2. **Modern Web Chat Interface (`rag ui`)**: A 3-column viewport-locked single page application (SPA) featuring real-time Server-Sent Events (SSE) token streaming, clickable citation badges, and an interactive slide-out Evidence Drawer.
 
 ```mermaid
 flowchart TD
@@ -39,7 +39,7 @@ flowchart TD
 
 ## 2. Web UI Chat Interface Guide
 
-The Web UI delivers a visual workspace for interacting with RAGnarok.
+The Web UI delivers a visual, modern workspace for interacting with RAGnarok.
 
 ### 2.1 Starting the Web Interface
 ```bash
@@ -47,21 +47,52 @@ uv run rag ui
 ```
 Navigate to **`http://127.0.0.1:8000`** in your browser. The default view is the **CHAT** tab.
 
-### 2.2 Key Interface Elements
-1. **Chat Stream Pane (Center Column)**:
-   - Displays conversational history with live Markdown rendering, tables, and syntax-highlighted code blocks.
-   - Inline **Citation Badges** (e.g., `[1]`, `[2]`) appear next to grounded factual statements.
-2. **Interactive Evidence Drawer (Right Column)**:
-   - Hovering over any citation badge highlights its corresponding source card in the Evidence Drawer.
-   - Clicking a badge scrolls directly to the source passage in the drawer, displaying the document filename, parent section, and exact passage text.
+### 2.2 Viewport-Locked SPA Layout Architecture
+
+The Web UI uses a strict viewport-locked layout (`height: 100vh; overflow: hidden;`):
+* **Top Navigation Bar & Header**: Stays permanently pinned at the top. Contains the brand title, status chip (`Online`), engine badges (`DuckDB`, `BM25s`, `TurboVec`), keyboard shortcut help (`Shortcuts (?)`), Architecture Studio toggle (`Arch`), and API documentation link (`API /docs`).
+* **Left Navigation Sidebar**: Stays permanently stationary on the left. Contains tab navigation (`CHAT`, `LIBRARY`, `VAULT`, `METRICS`) and dynamic retrieval controls.
+* **Right Evidence Drawer**: Stays permanently pinned on the right. Displays grounded source passages, parent chunk metadata, and retrieval confidence scores.
+* **Isolated Chat Body Scrolling**: Only the message history container (`.chat-messages`) scrolls vertically (`overscroll-behavior: contain`). The query input box and all surrounding bars remain fixed in place.
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 🔱 RAGnarok  ● Online           DuckDB · BM25s · TurboVec   Shortcuts(?)  Arch  │ [Pinned Top Header]
+├──────────────┬───────────────────────────────────────────────────┬──────────────┤
+│ NAVIGATION   │ Chat Stream Pane (Isolated Scroll Body)           │ EVIDENCE     │
+│ [CHAT]       │                                                   │              │
+│ [LIBRARY]    │ User: How does DuckDB parent expansion work?      │ [Source 1]   │ [Pinned Right
+│ [VAULT]      │                                                   │ storage.md   │  Evidence Bar]
+│ [METRICS]    │ Assistant: DuckDB retrieves the parent chunk [1]… │ Sim: 0.884   │
+│              │                                                   │              │
+│ RETRIEVAL    │ ───────────────────────────────────────────────── │              │
+│ Strategy:    │                                                   │              │
+│ [Hybrid  ▼]  │                                                   │              │
+│ ☑ Reranking  │                                                   │              │
+│ ☑ Self-RAG   │ [ + Ask RAGnarok anything...                    ] │              │
+└──────────────┴───────────────────────────────────────────────────┴──────────────┘
+ [Pinned Left]   [Pinned Bottom Query Bar inside Center Column]
+```
+
+### 2.3 Key Interface Features
+
+1. **Streaming Token Display (Center Column)**:
+   - Live token rendering via Server-Sent Events (`POST /api/chat/stream`).
+   - GitHub Flavored Markdown (tables, headings, syntax-highlighted code blocks).
+   - Real-time secret masking via Surface 3 Stream Sanitizer.
+2. **Interactive Citation Badges & Evidence Linking**:
+   - Numbered citation badges (e.g., `[1]`, `[2]`) appear inline next to grounded claims.
+   - Clicking any citation badge automatically opens/focuses the corresponding source card in the right Evidence Drawer.
+   - For parametric queries where retrieval was unnecessary (e.g., general definitions or greetings), the UI displays a `PARAMETRIC KNOWLEDGE · ZERO CORPUS RETRIEVAL` indicator.
 3. **Retrieval Controls (Left Sidebar)**:
    - **Strategy Selector**: Switch between `Hybrid` (recommended), `Vector` (Dense only), or `BM25` (Lexical only) on the fly.
    - **Reranking Toggle**: Enable or disable the Cross-Encoder reranker.
-4. **Starter Chips**:
+   - **Self-RAG Gate Toggle**: Enable or disable intelligent parametric query classification.
+4. **Starter Prompt Chips**:
    - One-click starter prompts for testing hybrid search, parent context expansion, and security guardrail interception.
 5. **Shortcuts & Architecture Explorer**:
-   - Click **`Shortcuts (?)`** to view keyboard shortcuts (e.g., `Ctrl+K` to focus query input, `Esc` to close drawers).
-   - Click **`Arch`** in the header to open the interactive Architecture Studio.
+   - Click **`Shortcuts (?)`** to view keyboard shortcuts (`Ctrl+K` to focus query input, `Esc` to close drawers).
+   - Click **`Arch`** in the header to open the interactive Architecture Studio with live telemetry, node inspection, and KaTeX equations.
 
 ---
 
@@ -107,7 +138,7 @@ RAGnarok retains conversation history across turns, enabling natural follow-up q
 rag> How does RAGnarok store chunks in DuckDB?
 
 Assistant:
-RAGnarok stores parent chunks (~1024 tokens) as raw text records in DuckDB [1].
+RAGnarok stores parent chunks (~512-1024 tokens) as raw text records in DuckDB [1].
 Unlike child chunks, parent chunks are never vectorized, which keeps vector index
 memory compact while providing complete surrounding context during generation [1].
 

@@ -17,7 +17,8 @@ Rather than introducing heavy external dependencies (such as PostgreSQL with `pg
 
 * **DuckDB:** Embedded relational OLAP database acting as the primary source of truth.
 * **BM25s:** Pure Python/NumPy sparse lexical index for child chunk terms.
-* **TurboVec:** Local memory-mapped dense vector index powered by ONNX runtime embeddings (`BAAI/bge-small-en-v1.5`).
+* **TurboVec:** Local memory-mapped dense vector index powered by ONNX runtime embeddings (`BAAI/bge-small-en-v1.5` cached locally in `models/fastembed_cache`).
+* **FlashRank:** Local ONNX Cross-Encoder reranker (`ms-marco-MiniLM-L-12-v2` cached locally in `models/ms-marco-MiniLM-L-12-v2`).
 
 ---
 

@@ -179,3 +179,33 @@ The raw benchmark results, schemas, and configurations are stored in:
 - `src/ragnarok/evals/bipia_bench.py`
 - `src/ragnarok/evals/nfcorpus_bench.py`
 - `src/ragnarok/evals/multihop_bench.py`
+
+
+---
+
+## 10. Benchmark Automation, Hardware Replication & Dynamic Web UI
+
+### 10.1 Automated Provisioning & Suite Runner
+All five benchmarks can be reproduced on any machine using dedicated automation scripts:
+
+```bash
+# 1. Download official benchmark datasets (~30 MB into data/benchmarks/)
+python scripts/download_benchmarks.py
+
+# 2. Execute master suite runner across all 5 evaluation layers
+uv run python scripts/run_all_benchmarks.py
+```
+
+### 10.2 Dynamic Web UI Telemetry Binding
+Executing `run_all_benchmarks.py` regenerates all JSON artifacts in `notes/report/`:
+* `scifact_benchmark_results.json`
+* `nfcorpus_benchmark_results.json`
+* `rgb_benchmark_results.json`
+* `bipia_benchmark_results.json`
+* `multihop_benchmark_results.json`
+
+The FastAPI server provides the endpoint `GET /api/metrics/benchmark`, which dynamically reads these files from disk. In the browser Web UI (`http://127.0.0.1:8000` under **METRICS**):
+1. **Top KPI Cards** display live values for SciFact nDCG, RGB Noise Accuracy, BIPIA ADR, and Hybrid Retrieval Latency.
+2. **The Master 5-Layer Table** (22 rows across Layers A through E) dynamically maps empirical metrics against targets.
+3. **The Pareto Frontier Scatter Plot** dynamically plots Mean Latency vs. Retrieval Accuracy (nDCG@10) across Dense, BM25, Hybrid RRF, and Cross-Encoder configurations.
+4. **Refreshing Metrics** does not require restarting the web server; clicking the **Refresh Metrics** button immediately updates the charts and tables.

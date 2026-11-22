@@ -136,21 +136,29 @@ GROQ_API_KEY="gsk_your_groq_api_key_here"
 # OLLAMA_API_BASE="http://localhost:11434"
 ```
 
-### 4. Verify System Diagnostics
+### 4. Pre-Provision Local Neural Models
+Pre-download quantized ONNX weights (~98 MB) to guarantee zero cold-start latency and offline execution:
+```bash
+uv run python scripts/download_models.py
+```
+
+### 5. Verify System Diagnostics
 ```bash
 uv run rag doctor
 ```
 
-### 5. Ingest Sample Documentation
+### 6. Ingest Sample Documentation
 ```bash
 uv run rag ingest ./docs/dataset/
 ```
 
-### 6. Launch Web UI Dashboard
+### 7. Launch Web UI Dashboard
 ```bash
 uv run rag ui
 ```
 Open **`http://127.0.0.1:8000`** in your browser.
+
+*(Optional)* To reproduce all formal empirical benchmarks on your hardware, run `python scripts/download_benchmarks.py` followed by `uv run python scripts/run_all_benchmarks.py`. All metric cards and charts in the Web UI update dynamically.
 
 ---
 
@@ -159,11 +167,11 @@ Open **`http://127.0.0.1:8000`** in your browser.
 RAGnarok provides four dedicated interaction modes:
 
 ### 1. Standalone Web UI (`rag ui` / `rag serve`)
-The browser dashboard provides:
-* **CHAT**: Conversational interface with live SSE token streaming, syntax highlighting, and clickable citation badges linking directly to passages in the **Evidence Drawer**.
+The browser dashboard delivers a viewport-locked single page application (SPA):
+* **CHAT**: Conversational interface with live SSE token streaming, syntax highlighting, and clickable citation badges linking directly to passages in the **Evidence Drawer**. The top navigation, left sidebar, and right evidence panel remain stationary while the conversation stream scrolls internally.
 * **LIBRARY**: Drag-and-drop document ingestion with instant dual-index compilation and quarantine inspection.
 * **VAULT**: Interactive DuckDB records table with real-time keyword search, chunk metrics, and manual re-indexing.
-* **METRICS**: Formal benchmark scorecards, dataset citation table, Precision-Recall tradeoff curve, and Latency vs. Quality Pareto Frontier.
+* **METRICS**: Live dynamic benchmark scorecards, Top KPI cards, Master 5-Layer Table, and Latency vs. Quality Pareto Frontier chart (auto-refreshed from benchmark scorecards).
 * **ARCH**: Click the `Arch` button in the header to open the interactive **Architecture Studio** featuring live telemetry chips, visual pipeline nodes, KaTeX mathematical formulas, and 1-click Mermaid diagram export.
 
 ### 2. Interactive Terminal Chat Shell (`rag chat` / `rag c`)
@@ -209,7 +217,7 @@ Comprehensive architectural, operational, and research documentation is availabl
 
 ### 📊 Research Reports & Benchmarks (`notes/report/`)
 * [comprehensive_evaluation_report.md](notes/report/comprehensive_evaluation_report.md) — Master publication-grade empirical report across 5 benchmarks.
-* [algorithm.md](notes/report/algorithm.md) — Formal $\LaTeX$ mathematical formulations, flowcharts, and pseudocode for all 4 native algorithms.
+* [algorithm.md](notes/report/algorithm.md) — Formal $\LaTeX$ mathematical formulations, flowcharts, and pseudocode for all 6 native algorithms.
 * [context_screening_and_evaluation.md](notes/report/context_screening_and_evaluation.md) — Security-Aware Context Screening & Evidence Selection thematic specification.
 * [native_guardrails.md](notes/report/native_guardrails.md) — Defense-in-depth security matrices, threat models, and latency SLAs.
 * [papers.md](notes/report/papers.md) — Literature review mapping RAGnarok against 21 foundational academic papers.
