@@ -79,7 +79,7 @@ Windows environments often default to converting Unix line feeds (`\n`) to Windo
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/RAGnarok.git
+git clone https://github.com/uehera/RAGnarok.git
 cd RAGnarok
 
 # 2. Strictly disable CRLF conversion for this repository

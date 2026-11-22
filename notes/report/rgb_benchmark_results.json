@@ -7,7 +7,7 @@
     "noise_robustness_accuracy": 1.0,
     "negative_rejection_rate": 0.98,
     "ghost_citation_elimination_rate": 1.0,
-    "mean_latency_ms": 33.56,
-    "p95_latency_ms": 35.03
+    "mean_latency_ms": 33.55,
+    "p95_latency_ms": 35.02
   }
 }

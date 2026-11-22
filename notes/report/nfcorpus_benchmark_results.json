@@ -3,7 +3,7 @@
   "domain": "Biomedical & Nutrition Information Retrieval",
   "total_corpus_documents": 3633,
   "total_test_queries": 323,
-  "evaluation_timestamp": "2026-11-21T20:28:36Z",
+  "evaluation_timestamp": "2026-11-22T08:23:29Z",
   "strategies": {
     "dense_only": {
       "strategy_name": "dense_only",
@@ -27,8 +27,8 @@
         "std": 0.32,
         "ci_95": 0.0349
       },
-      "mean_latency_ms": 14.61,
-      "p95_latency_ms": 14.61,
+      "mean_latency_ms": 8.2,
+      "p95_latency_ms": 8.2,
       "total_queries": 323
     },
     "bm25_only": {
@@ -39,74 +39,74 @@
         "ci_95": 0.024
       },
       "recall_at_10": {
-        "mean": 0.1529,
+        "mean": 0.1531,
         "std": 0.2381,
         "ci_95": 0.026
       },
       "mrr_at_10": {
-        "mean": 0.5307,
-        "std": 0.4439,
-        "ci_95": 0.0484
+        "mean": 0.5292,
+        "std": 0.4432,
+        "ci_95": 0.0483
       },
       "ndcg_at_10": {
-        "mean": 0.3294,
-        "std": 0.3182,
-        "ci_95": 0.0347
+        "mean": 0.3298,
+        "std": 0.319,
+        "ci_95": 0.0348
       },
-      "mean_latency_ms": 0.5,
-      "p95_latency_ms": 0.5,
+      "mean_latency_ms": 0.29,
+      "p95_latency_ms": 0.29,
       "total_queries": 323
     },
     "hybrid_rrf": {
       "strategy_name": "hybrid_rrf",
       "recall_at_5": {
         "mean": 0.1372,
-        "std": 0.2374,
+        "std": 0.2373,
         "ci_95": 0.0259
       },
       "recall_at_10": {
-        "mean": 0.1667,
-        "std": 0.2451,
+        "mean": 0.167,
+        "std": 0.245,
         "ci_95": 0.0267
       },
       "mrr_at_10": {
-        "mean": 0.5629,
-        "std": 0.4437,
-        "ci_95": 0.0484
+        "mean": 0.5614,
+        "std": 0.443,
+        "ci_95": 0.0483
       },
       "ndcg_at_10": {
         "mean": 0.3563,
-        "std": 0.3246,
+        "std": 0.3242,
         "ci_95": 0.0354
       },
-      "mean_latency_ms": 15.23,
-      "p95_latency_ms": 15.25,
+      "mean_latency_ms": 8.56,
+      "p95_latency_ms": 8.59,
       "total_queries": 323
     },
     "hybrid_rerank": {
       "strategy_name": "hybrid_rerank",
       "recall_at_5": {
-        "mean": 0.1374,
-        "std": 0.2347,
+        "mean": 0.1376,
+        "std": 0.2349,
         "ci_95": 0.0256
       },
       "recall_at_10": {
-        "mean": 0.1667,
-        "std": 0.2451,
+        "mean": 0.167,
+        "std": 0.245,
         "ci_95": 0.0267
       },
       "mrr_at_10": {
-        "mean": 0.5512,
-        "std": 0.4367,
-        "ci_95": 0.0476
+        "mean": 0.5488,
+        "std": 0.435,
+        "ci_95": 0.0474
       },
       "ndcg_at_10": {
-        "mean": 0.349,
-        "std": 0.3187,
+        "mean": 0.3503,
+        "std": 0.3188,
         "ci_95": 0.0348
       },
-      "mean_latency_ms": 2669.2,
-      "p95_latency_ms": 3975.54,
+      "mean_latency_ms": 1381.27,
+      "p95_latency_ms": 1501.94,
       "total_queries": 323
     }
   }

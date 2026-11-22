@@ -114,7 +114,7 @@ RAGnarok was evaluated across five peer-reviewed benchmark datasets to certify r
 ### 2. Clone & Setup Environment
 ```bash
 # 1. Clone repository
-git clone https://github.com/ver1619/RAGnarok.git
+git clone https://github.com/uehera/RAGnarok.git
 cd RAGnarok
 
 # 2. Disable Git CRLF conversion (prevents SHA-256 quarantine corruption)

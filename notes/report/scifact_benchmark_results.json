@@ -8,28 +8,28 @@
       "recall_at_10": 0.8452,
       "mrr_at_10": 0.6847,
       "ndcg_at_10": 0.7203,
-      "mean_latency_ms": 37.31
+      "mean_latency_ms": 18.25
     },
     "bm25_only": {
       "recall_at_5": 0.7429,
       "recall_at_10": 0.8287,
       "mrr_at_10": 0.6502,
       "ndcg_at_10": 0.6889,
-      "mean_latency_ms": 0.45
+      "mean_latency_ms": 0.44
     },
     "hybrid_rrf": {
       "recall_at_5": 0.7893,
       "recall_at_10": 0.8511,
       "mrr_at_10": 0.7018,
       "ndcg_at_10": 0.7332,
-      "mean_latency_ms": 37.84
+      "mean_latency_ms": 18.78
     },
     "hybrid_rerank": {
       "recall_at_5": 0.7644,
       "recall_at_10": 0.8511,
       "mrr_at_10": 0.6701,
       "ndcg_at_10": 0.7087,
-      "mean_latency_ms": 2486.47
+      "mean_latency_ms": 1467.17
     }
   }
 }

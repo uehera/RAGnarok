@@ -32,10 +32,10 @@ $$\text{MRR}@10 = \frac{1}{\min \{i \le 10 \mid d_i \in \text{Relevant}\}}$$
 
 | Retrieval Strategy | Recall@5 | Recall@10 | MRR@10 | nDCG@10 | Mean Latency (ms) | Key Finding |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Dense Only (TurboVec Cosine, 384-d)** | 0.7686 | 0.8452 | 0.6847 | 0.7203 | 37.31 ms | Strong semantic capture; misses exact terminology |
-| **BM25s Lexical Index Only** | 0.7429 | 0.8287 | 0.6502 | 0.6889 | **0.45 ms** | Sub-millisecond execution; lower semantic generalization |
-| **Hybrid Fusion (RRF $k=60$)** | **0.7893** | **0.8511** | **0.7018** | **0.7332** | 37.84 ms | **Highest nDCG and Recall; out-performs both pure methods** |
-| **Hybrid + Cross-Encoder Reranker** | 0.7644 | **0.8511** | 0.6701 | 0.7087 | 2486.47 ms | Slices top candidates; higher compute penalty |
+| **Dense Only (TurboVec Cosine, 384-d)** | 0.7686 | 0.8452 | 0.6847 | 0.7203 | 18.25 ms | Strong semantic capture; misses exact terminology |
+| **BM25s Lexical Index Only** | 0.7429 | 0.8287 | 0.6502 | 0.6889 | **0.44 ms** | Sub-millisecond execution; lower semantic generalization |
+| **Hybrid Fusion (RRF $k=60$)** | **0.7893** | **0.8511** | **0.7018** | **0.7332** | 18.78 ms | **Highest nDCG and Recall; out-performs both pure methods** |
+| **Hybrid + Cross-Encoder Reranker** | 0.7644 | **0.8511** | 0.6701 | 0.7087 | 1467.17 ms | Slices top candidates; higher compute penalty |
 
 > [!NOTE]
 > **Key Empirical Takeaway:** Reciprocal Rank Fusion ($k=60$) delivers a **+1.3% gain in nDCG@10** over pure Dense vector search and a **+4.4% gain** over BM25s alone, validating RAGnarok's dual-engine hybrid architecture.
@@ -51,8 +51,8 @@ Evaluates the generation subsystem on 100 test queries from the official RGB ben
 | **Noise Robustness** | Accuracy when evidence is submerged in 80% distractor noise | $\ge 85.0\%$ | **100.0%** | 🟢 **PASSED** |
 | **Negative Rejection Rate** | Rejection rate when positive evidence is absent (Zero Speculation) | $\ge 90.0\%$ | **98.0%** | 🟢 **PASSED** |
 | **Ghost Citation Elimination** | Percentage of hallucinated footnote citations referencing absent chunks | $0.00\%$ | **0.00% (100% Valid)** | 🟢 **PASSED** |
-| **Mean Query Latency** | End-to-end processing duration | $< 1500\text{ ms}$ | **33.56 ms** | 🟢 **PASSED** |
-| **P95 Latency** | 95th-percentile response latency | $< 2500\text{ ms}$ | **35.03 ms** | 🟢 **PASSED** |
+| **Mean Query Latency** | End-to-end processing duration | $< 1500\text{ ms}$ | **33.55 ms** | 🟢 **PASSED** |
+| **P95 Latency** | 95th-percentile response latency | $< 2500\text{ ms}$ | **35.02 ms** | 🟢 **PASSED** |
 
 > [!NOTE]
 > **Key Empirical Takeaway:** When evidence was withheld, RAGnarok correctly triggered its standardized refusal directive (`"I cannot find sufficient information in the provided documents."`) in **98.0% of unanswerable cases**, completely eliminating ungrounded hallucinations.
@@ -92,10 +92,10 @@ To verify cross-domain generalizability beyond physical science, RAGnarok was ev
 
 | Retrieval Strategy | Recall@5 (±CI95) | Recall@10 (±CI95) | MRR@10 (±CI95) | nDCG@10 (±CI95) | Mean Latency (ms) | Key Finding |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Dense Only (TurboVec, 384-d)** | 0.1275 (±0.024) | 0.1626 (±0.026) | 0.5328 (±0.048) | 0.3430 (±0.035) | 14.61 ms | Semantic match for clinical terminology |
-| **BM25s Lexical Index Only** | 0.1225 (±0.024) | 0.1529 (±0.026) | 0.5307 (±0.048) | 0.3294 (±0.035) | **0.50 ms** | Fast keyword lookup; struggles with medical synonyms |
-| **Hybrid Fusion (RRF $k=60$)** | **0.1372 (±0.026)** | **0.1667 (±0.027)** | **0.5629 (±0.048)** | **0.3563 (±0.035)** | 15.23 ms | **Highest nDCG and MRR across both domains** |
-| **Hybrid + Cross-Encoder Reranker** | 0.1374 (±0.026) | 0.1667 (±0.027) | 0.5512 (±0.048) | 0.3490 (±0.035) | 2669.20 ms | Heavy re-ranking overhead on biomedical spans |
+| **Dense Only (TurboVec, 384-d)** | 0.1275 (±0.024) | 0.1626 (±0.026) | 0.5328 (±0.048) | 0.3430 (±0.035) | 8.20 ms | Semantic match for clinical terminology |
+| **BM25s Lexical Index Only** | 0.1225 (±0.024) | 0.1531 (±0.026) | 0.5292 (±0.048) | 0.3298 (±0.035) | **0.29 ms** | Fast keyword lookup; struggles with medical synonyms |
+| **Hybrid Fusion (RRF $k=60$)** | **0.1372 (±0.026)** | **0.1670 (±0.027)** | **0.5614 (±0.048)** | **0.3563 (±0.035)** | 8.56 ms | **Highest nDCG and MRR across both domains** |
+| **Hybrid + Cross-Encoder Reranker** | 0.1376 (±0.026) | 0.1670 (±0.027) | 0.5488 (±0.047) | 0.3503 (±0.035) | 1381.27 ms | Heavy re-ranking overhead on biomedical spans |
 
 > [!NOTE]
 > **Cross-Domain Takeaway:** Reciprocal Rank Fusion ($k=60$) delivers a statistically significant **+2.7% nDCG gain** over BM25s and **+1.3% gain** over Dense search, mirroring the exact ranking dynamics observed in SciFact.
@@ -114,7 +114,7 @@ Evaluates multi-hop reasoning capability using 200 balanced test cases from the 
 | **Partial Evidence Recall@20** | Mean fraction of supporting evidence docs retrieved | $\ge 85.0\%$ | **91.5% (±2.66%)** | 🟢 **PASSED** |
 | **Null-Query Rejection Rate** | Negative rejection on ungrounded/absent multi-hop premises | $\ge 90.0\%$ | **100.0%** | 🟢 **PASSED** |
 | **Context Window Expansion** | Gain in evidence span coverage from parent-child expansion | $\ge +3.0\%$ | **+4.42%** | 🟢 **PASSED** |
-| **Multi-Hop Retrieval Latency** | Mean end-to-end multi-chunk retrieval duration | $< 100\text{ ms}$ | **59.60 ms** (P95: 59.67 ms) | 🟢 **PASSED** |
+| **Multi-Hop Retrieval Latency** | Mean end-to-end multi-chunk retrieval duration | $< 100\text{ ms}$ | **33.92 ms** (P95: 33.94 ms) | 🟢 **PASSED** |
 
 ### Breakdown by Reasoning Archetype (Joint Recall@10)
 - **Comparison Queries (50 cases):** **74.0%** (Contrasting attributes across entities)
@@ -145,8 +145,9 @@ The unified matrix below consolidates all five evaluation dimensions into a sing
 | | Database Contamination ($\text{DCR}$) | $\mathbf{0.00\%}$ | **0.00%** | Microsoft BIPIA (100 cases) | 🟢 **CERTIFIED** |
 | | Secret Leakage Rate ($\text{SLR}$) | $\mathbf{0.00\%}$ | **0.00%** | Microsoft BIPIA (100 cases) | 🟢 **CERTIFIED** |
 | | False Positive Rate ($\text{FPR}$) | $< 2.0\%$ | **0.00%** | Benign Control Docs | 🟢 **CERTIFIED** |
-| **Layer E: Systems & Latency** | BM25s Retrieval Latency | $< 5.0\text{ ms}$ | **0.45 ms** | BEIR SciFact (300 queries) | 🟢 **CERTIFIED** |
-| | Hybrid Fusion Latency | $< 50.0\text{ ms}$ | **37.84 ms** | BEIR SciFact (300 queries) | 🟢 **CERTIFIED** |
+| **Layer E: Systems & Latency** | BM25s Retrieval Latency | $< 5.0\text{ ms}$ | **0.44 ms** | BEIR SciFact (300 queries) | 🟢 **CERTIFIED** |
+| | Hybrid Fusion Latency | $< 50.0\text{ ms}$ | **18.78 ms** | BEIR SciFact (300 queries) | 🟢 **CERTIFIED** |
+| | Multi-Hop Search Latency | $< 100.0\text{ ms}$ | **33.92 ms** | MultiHop-RAG (200 cases) | 🟢 **CERTIFIED** |
 | | Guardrail Overhead Latency | $< 2.0\text{ ms}$ | **1.49 ms** | Microsoft BIPIA (100 cases) | 🟢 **CERTIFIED** |
 | | Incremental Document Reindex | $< 2.0\text{ s}$ | **259 ms (310x speedup)** | TurboVec Incremental Add | 🟢 **CERTIFIED** |
 | | Self-RAG Compute Savings | $> 50\%$ | **100% Retrieval Bypassed** | Self-RAG Decision Gate | 🟢 **CERTIFIED** |
