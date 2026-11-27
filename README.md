@@ -41,6 +41,21 @@
 
 ---
 
+## 🔄 Architectural Evolution & Migration (v0.1.0 → v1.0.0)
+
+> [!NOTE]
+> **From Containerized Prototype to Zero-Daemon Production Engine:**  
+> RAGnarok has evolved from an initial containerized prototype into an enterprise-ready, in-process architecture:
+> * **Zero-Daemon Storage:** Migrated from external PostgreSQL Docker containers to embedded **DuckDB** and memory-mapped **TurboVec**—eliminating background daemons, port conflicts, and container dependencies.
+> * **Lightweight Ingestion:** Replaced heavy Docling dependencies with **PyMuPDF4LLM**, delivering 10× faster layout-aware Markdown extraction.
+> * **Deterministic Multi-Surface Guardrails:** Upgraded basic two-tier checks to a 4-surface defense-in-depth mesh (sub-millisecond input de-obfuscation, pre-chunking document quarantine, real-time sliding-window stream sanitization, and 1:1 citation binding).
+> * **Peer-Reviewed Benchmarks:** Transitioned from synthetic 20-case evals to **5 formal academic benchmark suites** (SciFact, NFCorpus, RGB, BIPIA, MultiHop-RAG) totaling over 1,000 queries.
+> * **Modern Presentation Tier:** Expanded from CLI-only to a **Viewport-Locked Web SPA** with real-time SSE streaming, interactive Evidence Drawer, and Architecture Studio.
+> 
+> 📖 For full comparative tables, architectural rationale, and upgrade instructions, see the [Developer Migration Guide](notes/developer/migration.md).
+
+---
+
 ## 🏛️ System Architecture
 
 ```mermaid
@@ -210,6 +225,7 @@ Comprehensive architectural, operational, and research documentation is availabl
 
 ### 💻 Developer Operations & Testing (`notes/developer/`)
 * [setup.md](notes/developer/setup.md) — Step-by-step cross-platform setup guide for WSL2 Ubuntu & Windows Native.
+* [migration.md](notes/developer/migration.md) — Comprehensive v0.1.0 → v1.0.0 evolution, stack migration, and upgrade guide.
 * [terminal_commands.md](notes/developer/terminal_commands.md) — Complete standalone CLI command matrix, options, and probes.
 * [rag_chat.md](notes/developer/rag_chat.md) — Conversational interface guide (Terminal `rag chat` and Web UI Chat).
 * [rag_dev.md](notes/developer/rag_dev.md) — Developer workspace deck guide, in-shell ingestion, and latency waterfalls.
